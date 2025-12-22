@@ -28,7 +28,7 @@ class RatingController extends Controller
     {
         $order = (new OrderRepository())->findById($request->order_id);
 
-        if($order->order_status == config('enums.order_status.delivered')){
+        if($order->order_status == 'complete'){
             $rating = (new RatingRepository())->storeByRequest($request);
 
             return $this->json('Thank for your rating', [

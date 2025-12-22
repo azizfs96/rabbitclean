@@ -186,7 +186,7 @@ class OrderController extends Controller
             'products' => 'required|array'
         ]);
 
-        if ($order->order_status == 'جاري التحصيل') {
+        if ($order->order_status == 'pickup') {
             (new OrderRepository())->updateByRequest($request, $order);
             return $this->json('Order is edited successful.');
         }

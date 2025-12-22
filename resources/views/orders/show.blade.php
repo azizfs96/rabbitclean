@@ -18,10 +18,11 @@
                         @endcan
 
                         @can('order.status.change')
+                            @php $statusLabels = session()->get('local') == 'ar' ? 'order_status_labels_ar' : 'order_status_labels_en'; @endphp
                             <div class="drop-down">
                                 <a class="btn btn-primary @role('visitor') visitorMessage @endrole" style="min-width:150px" href="#status @role('visitor') visitor @endrole" data-toggle="collapse"
                                     aria-expanded="false" role="button" aria-controls="navbar-examples">
-                                    <span class="nav-link-text">{{ __($order->order_status) }}</span>
+                                    <span class="nav-link-text">{{ config('enums.' . $statusLabels . '.' . $order->order_status, $order->order_status) }}</span>
                                     <i class="fa fa-chevron-down"></i>
                                 </a>
 
@@ -31,7 +32,7 @@
                                             <li class="nav-item">
                                                 <a class="nav-link"
                                                     href="{{ route('order.status.change', ['order' => $order->id, 'status' => $key]) }}">
-                                                    {{ __($order_status) }}
+                                                    {{ config('enums.' . $statusLabels . '.' . $key, $order_status) }}
                                                 </a>
                                             </li>
                                         @endforeach
@@ -51,9 +52,10 @@
                     <div class="card-body pt-2">
                         <div class="table-responsive-md">
                             <table class="table table-bordered table-striped {{ session()->get('local') }}">
+                                @php $statusLabelsTable = session()->get('local') == 'ar' ? 'order_status_labels_ar' : 'order_status_labels_en'; @endphp
                                 <tr>
                                     <th class="py-2">{{ __('Order') . ' ' . __('Status') }}</th>
-                                    <td class="py-2">{{ __($order->order_status) }}</td>
+                                    <td class="py-2">{{ config('enums.' . $statusLabelsTable . '.' . $order->order_status, $order->order_status) }}</td>
                                 </tr>
                                 <tr>
                                     <th class="py-2">{{ __('Payment') . ' ' . __('Status') }}</th>

@@ -50,13 +50,23 @@ return [
         'cancelled' => 'cancelled',                     // Final - Cancelled
     ],
 
+    // English labels for display
+    'order_status_labels_en' => [
+        'pickup' => 'Pickup',
+        'create_invoice' => 'Create Invoice',
+        'processing' => 'Processing',
+        'ready' => 'Ready',
+        'complete' => 'Complete',
+        'cancelled' => 'Cancelled',
+    ],
+
     // Arabic labels for display
-    'order_status_labels' => [
+    'order_status_labels_ar' => [
         'pickup' => 'جاري التحصيل',
         'create_invoice' => 'إنشاء الفاتورة',
-        'processing' => 'جاري المعالجة',
-        'ready' => 'جاهز',
-        'complete' => 'مكتمل',
+        'processing' => 'جاري الغسيل',
+        'ready' => 'جاهز للتوصيل',
+        'complete' => 'تم التوصيل',
         'cancelled' => 'ملغي',
     ],
 

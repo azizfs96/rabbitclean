@@ -11,14 +11,15 @@
                         </h2>
                         <div class="d-flex justify-content-end align-items-center">
                             <form class="d-flex align-items-center" action="{{ route('order.index') }}" method="GET">
+                                @php $statusLabels = session()->get('local') == 'ar' ? 'order_status_labels_ar' : 'order_status_labels_en'; @endphp
                                 <select class="form-control mx-2" name="status" style="width: 200px">
                                     <option value="">
-                                        {{ in_array(config('enums.order_status.' . \request('status')), config('enums.order_status')) ? __(config('enums.order_status.' . request('status'))) : __('All') }}
+                                        {{ in_array(config('enums.order_status.' . \request('status')), config('enums.order_status')) ? config('enums.' . $statusLabels . '.' . request('status'), request('status')) : __('All') }}
                                     </option>
 
                                     @foreach (config('enums.order_status') as $key => $order_status)
                                         <option value="{{ $key }}" {{ $key == \request('status') ? 'selected' : '' }}>
-                                            {{ __($order_status) }}
+                                            {{ config('enums.' . $statusLabels . '.' . $key, $order_status) }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -60,6 +61,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    @php $tableStatusLabels = session()->get('local') == 'ar' ? 'order_status_labels_ar' : 'order_status_labels_en'; @endphp
                                     @foreach ($orders as $order)
                                         <tr class="{{ $order->is_show ? '' : 'bg-color' }}">
                                             <td class="py-1">{{ $order->prefix . $order->order_code }}</td>
@@ -84,7 +86,7 @@
                                                     <br><small class="text-info">{{ __('Adjusted') }}: {{ currencyPosition($order->admin_adjusted_amount) }}</small>
                                                 @endif
                                             </td>
-                                            <td class="py-1">{{ __($order->order_status) }}</td>
+                                            <td class="py-1">{{ config('enums.' . $tableStatusLabels . '.' . $order->order_status, $order->order_status) }}</td>
                                             @canany(['order.show', 'order.print.invioce'])
                                                 <td class="p-1 ">
                                                     <a href="#address{{ $order->id }}" data-toggle="modal"

@@ -19,6 +19,7 @@ use App\Services\NotificationServices;
 use App\Repositories\DeviceKeyRepository;
 use App\Repositories\TransationRepository;
 use App\Repositories\NotificationRepository;
+use App\Enum\OrderStatus;
 
 class OrderController extends Controller
 {
@@ -229,7 +230,7 @@ class OrderController extends Controller
         $order->update([
             'sent_to_customer' => true,
             'payment_status' => 'Pending',
-            'order_status' => 'Order confirmed',
+            'order_status' => OrderStatus::CREATE_INVOICE->value,
         ]);
 
         // Send notification to customer

@@ -16,15 +16,15 @@ class DashboardController extends Controller
         $customers = Customer::all();
         $services = (new ServiceRepository())->getAll();
         $products = (new ProductRepository())->getAll();
-        $income = (new OrderRepository())->getByStatus('تم التوصيل')->sum('amount');
+        $income = (new OrderRepository())->getByStatus('complete')->sum('amount');
 
         $revenues = (new OrderRepository())->getRevenueReport();
 
-        $confirmOrder = (new OrderRepository())->getByStatus('جاري التحصيل')->count();
-        $completeOrder = (new OrderRepository())->getByStatus('تم التوصيل')->count();
-        $pendingOrder = (new OrderRepository())->getByStatus('جاري التحصيل')->count();
-        $onPregressOrder = (new OrderRepository())->getByStatus('جاري الغسيل')->count();
-        $cancelledOrder = (new OrderRepository())->getByStatus('ملغي')->count();
+        $confirmOrder = (new OrderRepository())->getByStatus('pickup')->count();
+        $completeOrder = (new OrderRepository())->getByStatus('complete')->count();
+        $pendingOrder = (new OrderRepository())->getByStatus('pickup')->count();
+        $onPregressOrder = (new OrderRepository())->getByStatus('processing')->count();
+        $cancelledOrder = (new OrderRepository())->getByStatus('cancelled')->count();
 
 
         return view('dashboard.index', compact(
