@@ -47,7 +47,9 @@ class OrderResource extends JsonResource
             'admin_notes' => $this->admin_notes ?? null,
             'delivery_charge' => (int) ($this->delivery_charge ?? 0),
             'order_status' => $this->order_status,
-            'order_status_bn' => __($this->order_status),
+            'order_status_bn' => config('enums.order_status_labels.' . $this->order_status, $this->order_status),
+            'is_active' => $this->isActiveOrder(),
+            'is_final' => $this->isFinalOrder(),
             'payment_status' => $this->payment_status,
             'payment_status_bn' => __($this->payment_status),
             'payment_type' => $this->payment_type,
@@ -120,5 +122,23 @@ class OrderResource extends JsonResource
             }
         }
         return null;
+    }
+
+    /**
+     * Check if order is active (should be shown in mobile app active orders)
+     */
+    private function isActiveOrder(): bool
+    {
+        $activeStatuses = config('enums.order_status_mobile', []);
+        return in_array($this->order_status, array_values($activeStatuses));
+    }
+
+    /**
+     * Check if order is in a final state (complete or cancelled)
+     */
+    private function isFinalOrder(): bool
+    {
+        $finalStatuses = config('enums.order_status_final', []);
+        return in_array($this->order_status, array_values($finalStatuses));
     }
 }

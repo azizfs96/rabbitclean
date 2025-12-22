@@ -16,7 +16,7 @@ class dashboardController extends Controller
         $customers = Customer::all()->count();
         $services = (new ServiceRepository())->getAll()->count();
         $products = (new ProductRepository())->getAll()->count();
-        $income = (new OrderRepository())->getByStatus('Delivered')->sum('amount');
+        $income = (new OrderRepository())->getByStatus(config('enums.order_status.complete'))->sum('amount');
         $todayOrders = (new OrderRepository())->getByTodays()->count();
         return $this->json('dashboard Details',[
             'customers' => $customers,

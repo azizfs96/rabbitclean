@@ -161,9 +161,6 @@ Route::get('/master', [masterController::class, 'index']);
 
 Route::get('/post-code', [PostCodeController::class, 'index']);
 
-// Package Routes (Public)
-Route::get('/packages', [\App\Http\Controllers\API\Package\PackageController::class, 'index']);
-Route::get('/packages/{package}', [\App\Http\Controllers\API\Package\PackageController::class, 'show']);
 
 
 // =========Route for Admin==========

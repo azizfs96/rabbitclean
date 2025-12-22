@@ -42,12 +42,36 @@ return [
     ],
 
     'order_status' => [
-        'pickup' => 'جاري التحصيل',                      // Step 1 - Pickup truck
-        'processing' => 'جاري الغسيل',                   // Step 2 - Washing machine
-        'ready' => 'جاهز للتوصيل',                       // Step 3 - Box/Ready
-        'on_the_way' => 'المندوب في الطريق إليك',       // Step 4 - Delivery truck
-        'delivered' => 'تم التوصيل',                     // Complete
-        'cancelled' => 'ملغي',                          // Cancelled
+        'pickup' => 'pickup',                           // Step 1 - Pickup
+        'create_invoice' => 'create_invoice',           // Step 2 - Create Invoice
+        'processing' => 'processing',                   // Step 3 - Processing
+        'ready' => 'ready',                             // Step 4 - Ready
+        'complete' => 'complete',                       // Final - Complete
+        'cancelled' => 'cancelled',                     // Final - Cancelled
+    ],
+
+    // Arabic labels for display
+    'order_status_labels' => [
+        'pickup' => 'جاري التحصيل',
+        'create_invoice' => 'إنشاء الفاتورة',
+        'processing' => 'جاري المعالجة',
+        'ready' => 'جاهز',
+        'complete' => 'مكتمل',
+        'cancelled' => 'ملغي',
+    ],
+
+    // Statuses returned to mobile app (active orders)
+    'order_status_mobile' => [
+        'pickup',
+        'create_invoice',
+        'processing',
+        'ready',
+    ],
+
+    // Final statuses (order history)
+    'order_status_final' => [
+        'complete',
+        'cancelled',
     ],
 
     'review_status' => $reviewStatuses,

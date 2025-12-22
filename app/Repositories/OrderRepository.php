@@ -294,7 +294,7 @@ class OrderRepository extends Repository
     public function getRevenueReportByBetweenDate($form, $to)
     {
         return  $this->model()::whereBetween('delivery_date', [$form, $to])
-            ->where('order_status', config('enums.order_status.delivered'))
+            ->where('order_status', config('enums.order_status.complete'))
             ->get();
     }
 
@@ -303,7 +303,7 @@ class OrderRepository extends Repository
         $year = now()->format('Y');
         $month = now()->format('m');
 
-        $orders = $this->model()::where('order_status', config('enums.order_status.delivered'));
+        $orders = $this->model()::where('order_status', config('enums.order_status.complete'));
         if (request()->type == 'month') {
 
             $orders = $orders->whereMonth('delivery_date', $month)
