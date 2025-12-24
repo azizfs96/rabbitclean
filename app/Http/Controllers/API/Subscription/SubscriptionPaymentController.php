@@ -29,97 +29,197 @@ class SubscriptionPaymentController extends Controller
      */
     public function initiatePayment(Request $request, Subscription $subscription): JsonResponse
     {
+        Log::info('Subscription Payment Initiation Started', [
+            'subscription_id' => $subscription->id,
+            'subscription_name' => $subscription->name,
+            'user_id' => auth()->id(),
+            'request_data' => $request->all(),
+        ]);
+
+        // Check if user is authenticated
+        if (!auth()->check()) {
+            Log::warning('Subscription Payment Failed: User not authenticated');
+            return response()->json([
+                'success' => false,
+                'message' => 'Authentication required',
+                'error_code' => 'UNAUTHENTICATED',
+            ], 401);
+        }
+
         $customer = auth()->user()->customer;
 
         if (!$customer) {
+            Log::warning('Subscription Payment Failed: Customer not found', [
+                'user_id' => auth()->id(),
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Customer not found',
+                'message' => 'Customer profile not found. Please complete your profile first.',
+                'error_code' => 'CUSTOMER_NOT_FOUND',
             ], 404);
         }
 
+        Log::info('Customer found', ['customer_id' => $customer->id]);
+
         if (!$subscription->is_active) {
+            Log::warning('Subscription Payment Failed: Plan not active', [
+                'subscription_id' => $subscription->id,
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'This subscription plan is not available',
+                'error_code' => 'PLAN_INACTIVE',
             ], 400);
         }
 
         // Check if customer already has an active subscription
         if ($this->subscriptionService->hasActiveSubscription($customer)) {
+            Log::warning('Subscription Payment Failed: Customer already has active subscription', [
+                'customer_id' => $customer->id,
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'You already have an active subscription',
+                'error_code' => 'ALREADY_SUBSCRIBED',
             ], 400);
         }
 
-        // Create pending subscription
-        $customerSubscription = $this->subscriptionService->purchaseSubscription(
-            $customer,
-            $subscription,
-            'paytabs'
-        );
+        try {
+            // Create pending subscription
+            Log::info('Creating pending subscription');
+            $customerSubscription = $this->subscriptionService->purchaseSubscription(
+                $customer,
+                $subscription,
+                'paytabs'
+            );
+            Log::info('Pending subscription created', ['customer_subscription_id' => $customerSubscription->id]);
 
-        // Get PayTabs configuration
-        $paymentGateway = PaymentGateway::where('name', 'paytabs')->first();
-        
-        if (!$paymentGateway || !$paymentGateway->is_active) {
+            // Get PayTabs configuration
+            $paymentGateway = PaymentGateway::where('name', 'paytabs')->first();
+            
+            if (!$paymentGateway) {
+                Log::error('PayTabs gateway not found in database');
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment gateway not configured',
+                    'error_code' => 'GATEWAY_NOT_FOUND',
+                ], 500);
+            }
+            
+            if (!$paymentGateway->is_active) {
+                Log::warning('PayTabs gateway is not active');
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment gateway is currently disabled',
+                    'error_code' => 'GATEWAY_DISABLED',
+                ], 400);
+            }
+
+            // Debug: Log raw config from database
+            Log::info('PayTabs RAW config from database', [
+                'raw_config' => $paymentGateway->config,
+                'config_type' => gettype($paymentGateway->config),
+                'gateway_id' => $paymentGateway->id,
+                'gateway_name' => $paymentGateway->name,
+                'mode' => $paymentGateway->mode,
+            ]);
+
+            // Handle config - it might be a JSON string or already an array
+            $configData = $paymentGateway->config;
+            if (is_string($configData)) {
+                $configData = json_decode($configData, true) ?? [];
+            }
+            if (!is_array($configData)) {
+                $configData = [];
+            }
+            
+            // Add mode to config for PayTabsService
+            $configData['mode'] = $paymentGateway->mode ?? 'test';
+            
+            $config = (object) $configData;
+            Log::info('PayTabs config loaded', [
+                'has_profile_id' => !empty($config->profile_id ?? null),
+                'has_server_key' => !empty($config->server_key ?? null),
+                'currency' => $config->currency ?? 'SAR',
+                'mode' => $config->mode ?? 'test',
+                'all_keys' => array_keys($configData),
+            ]);
+
+            $user = auth()->user();
+
+            // Prepare payment request
+            $paymentRequest = new Request([
+                'paid_amount' => $subscription->price,
+                'order_id' => 'SUB-' . $customerSubscription->id,
+                'description' => "Subscription: {$subscription->name}",
+                'customer_name' => $user->name ?? 'Customer',
+                'customer_email' => $user->email ?? 'customer@example.com',
+                'customer_phone' => $user->mobile ?? '0000000000',
+                'customer_address' => $customer->addresses()->first()?->address ?? 'Address',
+                'customer_city' => $customer->addresses()->first()?->city ?? 'Riyadh',
+                'customer_state' => 'Riyadh',
+                'customer_country' => 'SA',
+                'customer_zip' => $customer->addresses()->first()?->postcode ?? '00000',
+                'return_url' => route('subscription.payment.return'),
+                'callback_url' => route('subscription.payment.callback'),
+                'language' => app()->getLocale() == 'ar' ? 'ar' : 'en',
+            ]);
+
+            Log::info('Payment request prepared', [
+                'amount' => $subscription->price,
+                'order_id' => 'SUB-' . $customerSubscription->id,
+            ]);
+
+            // Process payment
+            $paymentResult = $this->payTabsService->paymentProcess($paymentRequest, $config);
+
+            Log::info('PayTabs payment result', $paymentResult);
+
+            if ($paymentResult['success']) {
+                // Update payment record with transaction reference
+                SubscriptionPayment::where('customer_subscription_id', $customerSubscription->id)
+                    ->update([
+                        'transaction_ref' => $paymentResult['tran_ref'] ?? null,
+                        'gateway_response' => $paymentResult,
+                    ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment initiated',
+                    'data' => [
+                        'subscription_id' => $customerSubscription->id,
+                        'redirect_url' => $paymentResult['redirect_url'],
+                        'tran_ref' => $paymentResult['tran_ref'] ?? null,
+                    ],
+                ]);
+            }
+
+            // Payment initiation failed - cancel the pending subscription
+            Log::warning('Payment initiation failed, deleting pending subscription', [
+                'customer_subscription_id' => $customerSubscription->id,
+                'error' => $paymentResult['message'] ?? 'Unknown error',
+            ]);
+            $customerSubscription->delete();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Payment gateway not available',
+                'message' => $paymentResult['message'] ?? 'Payment initiation failed',
+                'error_code' => 'PAYMENT_FAILED',
             ], 400);
-        }
 
-        $config = (object) ($paymentGateway->config ?? []);
-        $user = auth()->user();
-
-        // Prepare payment request
-        $paymentRequest = new Request([
-            'paid_amount' => $subscription->price,
-            'order_id' => 'SUB-' . $customerSubscription->id,
-            'description' => "Subscription: {$subscription->name}",
-            'customer_name' => $user->name ?? 'Customer',
-            'customer_email' => $user->email ?? 'customer@example.com',
-            'customer_phone' => $user->mobile ?? '0000000000',
-            'customer_address' => $customer->addresses()->first()?->address ?? 'Address',
-            'customer_city' => $customer->addresses()->first()?->city ?? 'Riyadh',
-            'customer_state' => 'Riyadh',
-            'customer_country' => 'SA',
-            'customer_zip' => $customer->addresses()->first()?->postcode ?? '00000',
-            'return_url' => route('subscription.payment.return'),
-            'callback_url' => route('subscription.payment.callback'),
-            'language' => app()->getLocale() == 'ar' ? 'ar' : 'en',
-        ]);
-
-        // Process payment
-        $paymentResult = $this->payTabsService->paymentProcess($paymentRequest, $config);
-
-        if ($paymentResult['success']) {
-            // Update payment record with transaction reference
-            SubscriptionPayment::where('customer_subscription_id', $customerSubscription->id)
-                ->update([
-                    'transaction_ref' => $paymentResult['tran_ref'] ?? null,
-                    'gateway_response' => $paymentResult,
-                ]);
+        } catch (\Exception $e) {
+            Log::error('Subscription payment exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
 
             return response()->json([
-                'success' => true,
-                'message' => 'Payment initiated',
-                'data' => [
-                    'subscription_id' => $customerSubscription->id,
-                    'redirect_url' => $paymentResult['redirect_url'],
-                    'tran_ref' => $paymentResult['tran_ref'] ?? null,
-                ],
-            ]);
+                'success' => false,
+                'message' => 'An error occurred while processing payment. Please try again.',
+                'error_code' => 'EXCEPTION',
+                'debug' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        // Payment initiation failed - cancel the pending subscription
-        $customerSubscription->delete();
-
-        return response()->json([
-            'success' => false,
-            'message' => $paymentResult['message'] ?? 'Payment initiation failed',
-        ], 400);
     }
 
     /**

@@ -12,7 +12,6 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Fresh install: Add order_status column with English-only ENUM values
         if (!Schema::hasColumn('orders', 'order_status')) {
             Schema::table('orders', function (Blueprint $table) {
                 $table->enum('order_status', ['pickup', 'create_invoice', 'processing', 'ready', 'complete', 'cancelled'])
