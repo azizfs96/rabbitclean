@@ -344,36 +344,74 @@ class OrderRepository extends Repository
         return $this->model()::with(['products', 'services', 'customer.user', 'customer.addresses', 'address', 'payment', 'rating'])->find($id);
     }
 
+    /**
+     * Convert Arabic time string to 24-hour format
+     * Examples: "8:00 ص" -> "08:00", "1:00 م" -> "13:00"
+     */
+    private function convertArabicTimeTo24Hour($time)
+    {
+        $time = trim($time);
+        
+        // Remove any extra characters and normalize
+        $time = preg_replace('/\s+/', ' ', $time);
+        
+        // Check for Arabic AM (ص) or PM (م)
+        $isPM = mb_strpos($time, 'م') !== false;
+        $isAM = mb_strpos($time, 'ص') !== false;
+        
+        // Extract just the numeric hour part
+        preg_match('/(\d{1,2})(?::(\d{2}))?/', $time, $matches);
+        
+        if (empty($matches)) {
+            return '08:00'; // Default fallback
+        }
+        
+        $hour = (int) $matches[1];
+        $minutes = isset($matches[2]) ? $matches[2] : '00';
+        
+        // Convert to 24-hour format
+        if ($isPM && $hour < 12) {
+            $hour += 12;
+        } elseif ($isAM && $hour == 12) {
+            $hour = 0;
+        }
+        
+        return sprintf('%02d:%s', $hour, $minutes);
+    }
+
     public function setPickOrDeliveryTime($date, $times, $type = 'picked')
     {
         if (empty($times)) {
             return null;
         }
         
+        // Split by hyphen to get time range (e.g., "8:00 ص- 12:00 م")
         $timeParts = explode('-', $times);
-        $firstTime = isset($timeParts[0]) ? trim($timeParts[0]) : null;
+        $firstTime = isset($timeParts[0]) ? $this->convertArabicTimeTo24Hour($timeParts[0]) : null;
 
         foreach ($timeParts as $time) {
-            $time = trim($time);
+            $converted24Hour = $this->convertArabicTimeTo24Hour($time);
             $orders = $this->model()::query();
+            
             if ($type == 'picked') {
-                $orders = $orders->where('pick_date', $date)->where('pick_hour', 'LIKE', "%$time%");
+                $orders = $orders->where('pick_date', $date)->where('pick_hour', 'LIKE', "$converted24Hour%");
             }
 
             if ($type == 'delivery') {
-                $orders = $orders->where('delivery_date', $date)->where('delivery_hour', 'LIKE', "%$time%");
+                $orders = $orders->where('delivery_date', $date)->where('delivery_hour', 'LIKE', "$converted24Hour%");
             }
 
             if ($orders->count() < 2) {
-                return sprintf('%02s', $time) . ':' . sprintf('%02s', ($orders->count() * 30)) . ':00';
+                // Return time in 24-hour format: HH:MM:SS
+                return $converted24Hour . ':' . sprintf('%02d', ($orders->count() * 30));
             }
         }
         
         // If no slot is available, return the first time anyway so the field is not null
         if ($firstTime) {
-            return sprintf('%02s', $firstTime) . ':00:00';
+            return $firstTime . ':00';
         }
         
-        return $times;
+        return '08:00:00'; // Safe fallback
     }
 }

@@ -233,16 +233,27 @@ class OrderController extends Controller
             'order_status' => OrderStatus::CREATE_INVOICE->value,
         ]);
 
+        // Refresh order and load customer with devices to ensure fresh data
+        $order->refresh();
+        $order->load('customer.devices');
+
         // Send notification to customer
-        if ($order->customer?->devices?->count()) {
+        if ($order->customer && $order->customer->devices && $order->customer->devices->count() > 0) {
             $devices = $order->customer->devices;
             $message = "Your order #{$order->prefix}{$order->order_code} is ready. Please review and complete payment. Total: {$order->total_amount} SAR";
             
             $tokens = $devices->pluck('key')->toArray();
-            $title = 'Order Ready for Payment';
-            (new NotificationServices())->sendNotification($message, $tokens, $title);
             
-            (new NotificationRepository())->storeByRequest($order->customer->id, $message, $title);
+            if (!empty($tokens)) {
+                $title = 'Order Ready for Payment';
+                
+                try {
+                    (new NotificationServices())->sendNotification($message, $tokens, $title);
+                    (new NotificationRepository())->storeByRequest($order->customer->id, $message, $title);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to send order notification: ' . $e->getMessage());
+                }
+            }
         }
 
         return back()->with('success', 'Order sent to customer successfully');
