@@ -37,6 +37,8 @@ class UserRequest extends FormRequest
             'alternative_phone' => 'nullable',
             'driving_lience' => 'nullable',
             'date_of_birth' => 'nullable',
+            'city' => 'nullable|string|max:100',
+            'neighborhood' => 'nullable|string|max:100',
         ];
 
         if (!$this->email && !$this->mobile) {

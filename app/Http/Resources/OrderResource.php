@@ -69,7 +69,8 @@ class OrderResource extends JsonResource
             'payment_url' => $payment_url,
             'services' => $this->whenLoaded('services', function() {
                 return ServiceResource::collection($this->services);
-            }, [])
+            }, []),
+            'note' => $this->instruction,
         ];
     }
 

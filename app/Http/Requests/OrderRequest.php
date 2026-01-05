@@ -31,6 +31,7 @@ class OrderRequest extends FormRequest
         return [
             'service_id' => ['nullable', 'array'],
             'service_id.*' => ['required', 'exists:services,id'],
+            'note' => ['nullable', 'string', 'max:1000'],
             'products' => ['nullable', 'array'],
             'products.*.id' => 'required|exists:' . (new Product())->getTable() . ',id',
             'additional_service_id' => 'nullable|array',

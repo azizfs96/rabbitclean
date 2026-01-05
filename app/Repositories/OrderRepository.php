@@ -84,7 +84,7 @@ class OrderRepository extends Repository
             'payment_type' => $request->payment_type ?? 'cash',
             'order_status' => config('enums.order_status.pickup'),
             'address_id' => $request->address_id,
-            'instruction' => $request->instruction,
+            'instruction' => $request->note ?? $request->instruction,
             'admin_completed' => $hasProducts,
             'sent_to_customer' => false,
             'review_status' => $reviewMode
@@ -355,7 +355,7 @@ class OrderRepository extends Repository
         // Remove any extra characters and normalize
         $time = preg_replace('/\s+/', ' ', $time);
         
-        // Check for Arabic AM (ص) or PM (م)
+        // Check for Arabic AM (ص) or PM (م)s       
         $isPM = mb_strpos($time, 'م') !== false;
         $isAM = mb_strpos($time, 'ص') !== false;
         

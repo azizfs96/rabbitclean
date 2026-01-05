@@ -88,6 +88,8 @@ class UserRepository extends Repository
             'profile_photo_id' => $thumbnail ? $thumbnail->id : null,
             "driving_lience" =>$request->driving_lience,
             "date_of_birth" =>$request->date_of_birth,
+            "city" => $request->city,
+            "neighborhood" => $request->neighborhood,
         ]);
 
         return $user;

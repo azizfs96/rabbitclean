@@ -323,6 +323,18 @@
                                             </tr>
 
                                         </table>
+                                        
+                                        @if($order->address->latitude && $order->address->longitude)
+                                            <a href="https://www.google.com/maps?q={{ $order->address->latitude }},{{ $order->address->longitude }}" 
+                                               target="_blank" 
+                                               class="btn btn-info mt-2">
+                                                <i class="fas fa-map-marker-alt"></i> {{ __('View on Google Maps') }}
+                                            </a>
+                                        @else
+                                            <span class="text-muted mt-2 d-block">
+                                                <i class="fas fa-map-marker-alt"></i> {{ __('No location coordinates available') }}
+                                            </span>
+                                        @endif
                                     </td>
                                 </tr>
                                 <tr>

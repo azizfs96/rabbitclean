@@ -29,6 +29,8 @@ class UserResource extends JsonResource
             'profile_photo_path' => $this->profilePhotoPath,
             'driving_lience' => $this->driving_lience,
             'date_of_birth' => $this->date_of_birth ? Carbon::parse($this->date_of_birth)->format('d F, Y') : null,
+            'city' => $this->city,
+            'neighborhood' => $this->neighborhood,
             'join_date' => Carbon::parse($this->created_at)->format('d F, Y'),
         ];
     }

@@ -129,7 +129,7 @@ Route::get('/subscriptions/{subscription}', [SubscriptionController::class, 'sho
 
 // Subscription Payment Callbacks (no auth required - called by PayTabs)
 Route::post('/subscription/payment/callback', [SubscriptionPaymentController::class, 'handleCallback'])->name('subscription.payment.callback');
-Route::get('/subscription/payment/return', [SubscriptionPaymentController::class, 'handleReturn'])->name('subscription.payment.return');
+Route::match(['get', 'post'], '/subscription/payment/return', [SubscriptionPaymentController::class, 'handleReturn'])->name('subscription.payment.return');
 Route::controller(PosController::class)->group(function(){
     Route::post('/pos', 'posStore');
     Route::get('/pos/customer','posCustomer');
