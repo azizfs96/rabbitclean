@@ -13,12 +13,7 @@ class NotificationsController extends Controller
 {
     public function index()
     {
-        $repository = new NotificationRepository();
-        
-        // Mark all unread notifications as read when user accesses the notifications page
-        $repository->markAllAsRead();
-        
-        $notifications = $repository->notificationListByStatus((int)\request('isRead'));
+        $notifications = (new NotificationRepository())->notificationListByStatus((int)\request('isRead'));
         return $this->json('Notification list',[
             'notification' => NotificationResource::collection($notifications)
         ]);
@@ -32,10 +27,20 @@ class NotificationsController extends Controller
         ]);
     }
 
-    public function update(Notification $notification)
+    public function update($id)
     {
+        if ($id == 0) {
+            // Mark all notifications as read for the authenticated customer
+            $count = (new NotificationRepository())->markAllAsReadByCustomer();
+            return $this->json('All notifications marked as read', [
+                'updated_count' => $count
+            ]);
+        }
+        
+        // Mark single notification as read
+        $notification = Notification::findOrFail($id);
         $notification = (new NotificationRepository())->readUpdateByRequest($notification);
-        return $this->json('Notification read successfully',[
+        return $this->json('Notification read successfully', [
             'notification' => (new NotificationResource($notification))
         ]);
     }

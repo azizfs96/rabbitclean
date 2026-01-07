@@ -101,7 +101,7 @@ Route::middleware(['auth:api', 'role:customer'])->group(function () {
 
     Route::get('/notifications', [NotificationsController::class, 'index']);
     Route::post('/notifications', [NotificationsController::class, 'store']);
-    Route::post('/notifications/{notification}', [NotificationsController::class, 'update']);
+    Route::post('/notifications/{id}', [NotificationsController::class, 'update']);
     Route::delete('/notifications/{notification}', [NotificationsController::class, 'delete']);
 
     // Subscription Routes

@@ -48,22 +48,17 @@ class NotificationRepository extends Repository
         return $notification;
     }
 
-    /**
-     * Mark all unread notifications as read for the current customer
-     */
-    public function markAllAsRead(): void
-    {
-        $customer = auth()->user()->customer;
-        $this->model()::where('customer_id', $customer->id)
-            ->where('isRead', 0)
-            ->update(['isRead' => 1]);
-    }
-
     public function deleteByRequest(Notification $notification): Notification
     {
         $notification->delete();
         return $notification;
     }
 
-
+    public function markAllAsReadByCustomer(): int
+    {
+        $customer = auth()->user()->customer;
+        return $this->model()::where('customer_id', $customer->id)
+            ->where('isRead', 0)
+            ->update(['isRead' => 1]);
+    }
 }
