@@ -13,7 +13,12 @@ class NotificationsController extends Controller
 {
     public function index()
     {
-        $notifications = (new NotificationRepository())->notificationListByStatus((int)\request('isRead'));
+        $repository = new NotificationRepository();
+        
+        // Mark all unread notifications as read when user accesses the notifications page
+        $repository->markAllAsRead();
+        
+        $notifications = $repository->notificationListByStatus((int)\request('isRead'));
         return $this->json('Notification list',[
             'notification' => NotificationResource::collection($notifications)
         ]);
