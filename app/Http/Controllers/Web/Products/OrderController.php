@@ -65,28 +65,29 @@ class OrderController extends Controller
 
         $notificationOrder = NotificationManage::where('name', $status)->first();
 
-        // if ($order->customer->devices->count() && $notificationOrder?->is_active) {
-
-        //     $message = $notificationOrder->message;
-        //     $keys = $order->customer->devices->pluck('key')->toArray();
-
-        //     (new NotificationServices($message, $keys, 'Order Status Update'));
-
-        //     (new NotificationRepository())->storeByRequest($order->customer->id, $message, 'Order status update');
-        // }
-
+        // Send Arabic notification to customer
         if ($order->customer?->devices?->count()) {
-            $devices = $order->customer?->devices;
-            $message = "Hello {$order->customer->name}. Your order status is {$status}. OrderID: {$order->prefix}{$order->order_code}";
+            $devices = $order->customer->devices;
+            
+            // Get Arabic notification message and title from config
+            $messageTemplate = config('enums.order_status_notifications_ar.' . $status);
+            $title = config('enums.order_status_titles_ar.' . $status, 'تحديث حالة الطلب');
+            
+            // Replace placeholders with actual values
+            $message = str_replace(
+                [':name', ':order_code', ':amount'],
+                [
+                    $order->customer->user->first_name ?? $order->customer->name ?? 'عميلنا الكريم',
+                    $order->prefix . $order->order_code,
+                    number_format($order->total_amount ?? 0, 2)
+                ],
+                $messageTemplate ?? 'تم تحديث حالة طلبك'
+            );
 
             $tokens = $devices->pluck('key')->toArray();
-            $title = 'Order Status Update';
             (new NotificationServices())->sendNotification($message, $tokens, $title);
-
             (new NotificationRepository())->storeByRequest($order->customer->id, $message, $title);
         }
-
-        // OrderMailEvent::dispatch($order);
 
         return back()->with('success', 'Status updated successfully');
     }
@@ -237,15 +238,27 @@ class OrderController extends Controller
         $order->refresh();
         $order->load('customer.devices');
 
-        // Send notification to customer
+        // Send Arabic notification to customer
         if ($order->customer && $order->customer->devices && $order->customer->devices->count() > 0) {
             $devices = $order->customer->devices;
-            $message = "Your order #{$order->prefix}{$order->order_code} is ready. Please review and complete payment. Total: {$order->total_amount} SAR";
-            
             $tokens = $devices->pluck('key')->toArray();
             
             if (!empty($tokens)) {
-                $title = 'Order Ready for Payment';
+                // Get Arabic notification message and title from config
+                $status = 'create_invoice';
+                $messageTemplate = config('enums.order_status_notifications_ar.' . $status);
+                $title = config('enums.order_status_titles_ar.' . $status, 'الفاتورة جاهزة 📄');
+                
+                // Replace placeholders with actual values
+                $message = str_replace(
+                    [':name', ':order_code', ':amount'],
+                    [
+                        $order->customer->user->first_name ?? $order->customer->name ?? 'عميلنا الكريم',
+                        $order->prefix . $order->order_code,
+                        number_format($order->total_amount ?? 0, 2)
+                    ],
+                    $messageTemplate ?? 'طلبك جاهز للدفع'
+                );
                 
                 try {
                     (new NotificationServices())->sendNotification($message, $tokens, $title);
