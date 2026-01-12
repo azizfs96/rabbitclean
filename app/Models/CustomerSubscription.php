@@ -20,6 +20,8 @@ class CustomerSubscription extends Model
         'delivery_credits_remaining',
         'towel_credits_remaining',
         'special_credits_remaining',
+        'credit_balance',       // New: simplified credit balance
+        'total_credits_used',   // New: total credits used
         'start_date',
         'end_date',
         'status',
@@ -33,6 +35,8 @@ class CustomerSubscription extends Model
         'end_date' => 'date',
         'auto_renew' => 'boolean',
         'amount_paid' => 'decimal:2',
+        'credit_balance' => 'decimal:2',
+        'total_credits_used' => 'decimal:2',
     ];
 
     const STATUS_ACTIVE = 'active';
@@ -152,6 +156,49 @@ class CustomerSubscription extends Model
             'special' => $this->special_credits_remaining,
             'total' => $this->getTotalCreditsRemaining(),
         ];
+    }
+
+    // ===== NEW: Simplified Credit System Methods =====
+
+    /**
+     * Get simplified credit balance
+     */
+    public function getCreditBalance(): float
+    {
+        return (float) ($this->credit_balance ?? 0);
+    }
+
+    /**
+     * Check if customer has enough credits for an amount
+     */
+    public function hasEnoughCredits(float $amount): bool
+    {
+        return $this->getCreditBalance() >= $amount;
+    }
+
+    /**
+     * Deduct credit amount (simplified)
+     */
+    public function deductCreditBalance(float $amount): bool
+    {
+        if (!$this->hasEnoughCredits($amount)) {
+            return false;
+        }
+
+        $this->credit_balance -= $amount;
+        $this->total_credits_used += $amount;
+        $this->save();
+
+        return true;
+    }
+
+    /**
+     * Add credit amount (simplified)
+     */
+    public function addCreditBalance(float $amount): void
+    {
+        $this->credit_balance += $amount;
+        $this->save();
     }
 
     protected function getCreditField(string $type): string

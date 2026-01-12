@@ -124,7 +124,33 @@
                         <hr>
 
                         <!-- Credits -->
-                        <h5 class="mb-3">{{ __('Credits Allocation') }}</h5>
+                        <h5 class="mb-3">{{ __('Credit Amount (Simplified)') }}</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="credit_amount">{{ __('Credit Amount (SAR)') }} <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" class="form-control @error('credit_amount') is-invalid @enderror" 
+                                           id="credit_amount" name="credit_amount" value="{{ old('credit_amount', 0) }}" min="0" required>
+                                    <small class="form-text text-muted">{{ __('The credit amount customer receives (can be more than price for bonus)') }}</small>
+                                    @error('credit_amount')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>{{ __('Bonus Preview') }}</label>
+                                    <div class="alert alert-info" id="bonus-preview">
+                                        {{ __('Enter price and credit amount to see bonus percentage') }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <h5 class="mb-3">{{ __('Legacy Credits (Optional)') }}</h5>
+                        <p class="text-muted small">{{ __('These are legacy credit types. Use Credit Amount above for the new simplified system.') }}</p>
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group">

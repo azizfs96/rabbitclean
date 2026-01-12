@@ -68,6 +68,8 @@ class SubscriptionService
                 'delivery_credits_remaining' => $plan->delivery_credits,
                 'towel_credits_remaining' => $plan->towel_credits,
                 'special_credits_remaining' => $plan->special_credits,
+                'credit_balance' => $plan->credit_amount ?? 0, // New: simplified credit balance
+                'total_credits_used' => 0, // New: start with 0 used
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'status' => CustomerSubscription::STATUS_PENDING,
@@ -93,22 +95,65 @@ class SubscriptionService
 
     /**
      * Activate subscription after successful payment
+     * If customer already has an active subscription, add credits to it instead of creating new
      */
     public function activateSubscription(CustomerSubscription $subscription, ?string $transactionRef = null, ?array $gatewayResponse = null): void
     {
         DB::transaction(function () use ($subscription, $transactionRef, $gatewayResponse) {
-            // Cancel any existing active subscriptions
-            CustomerSubscription::where('customer_id', $subscription->customer_id)
+            // Check for existing active subscription
+            $existingSubscription = CustomerSubscription::where('customer_id', $subscription->customer_id)
                 ->where('id', '!=', $subscription->id)
                 ->where('status', CustomerSubscription::STATUS_ACTIVE)
-                ->update(['status' => CustomerSubscription::STATUS_CANCELLED]);
+                ->first();
 
-            // Activate the subscription
-            $subscription->status = CustomerSubscription::STATUS_ACTIVE;
-            if ($transactionRef) {
-                $subscription->payment_reference = $transactionRef;
+            if ($existingSubscription) {
+                // Add credits to existing subscription instead of creating new
+                $creditAmount = $subscription->credit_balance ?? 0;
+                $existingSubscription->credit_balance += $creditAmount;
+                
+                // Extend the end date if the existing one is shorter
+                if ($subscription->end_date > $existingSubscription->end_date) {
+                    $existingSubscription->end_date = $subscription->end_date;
+                }
+                
+                $existingSubscription->save();
+                
+                // Log the credit addition
+                \App\Models\CreditTransaction::create([
+                    'customer_id' => $subscription->customer_id,
+                    'customer_subscription_id' => $existingSubscription->id,
+                    'credit_type' => 'balance',
+                    'amount' => $creditAmount,
+                    'transaction_type' => 'credit',
+                    'reference_type' => 'subscription_renewal',
+                    'reference_id' => $subscription->id,
+                    'balance_before' => $existingSubscription->credit_balance - $creditAmount,
+                    'balance_after' => $existingSubscription->credit_balance,
+                    'notes' => "إضافة رصيد من اشتراك جديد: {$creditAmount} ريال",
+                ]);
+                
+                // Mark the new subscription as merged (not active)
+                $subscription->status = 'merged';
+                $subscription->notes = 'Credits added to existing subscription #' . $existingSubscription->id;
+                $subscription->save();
+                
+                \Log::info('Credits added to existing subscription', [
+                    'new_subscription_id' => $subscription->id,
+                    'existing_subscription_id' => $existingSubscription->id,
+                    'credits_added' => $creditAmount,
+                    'new_balance' => $existingSubscription->credit_balance,
+                ]);
+            } else {
+                // No existing subscription - activate this one normally
+                $subscription->status = CustomerSubscription::STATUS_ACTIVE;
+                if ($transactionRef) {
+                    $subscription->payment_reference = $transactionRef;
+                }
+                $subscription->save();
+                
+                // Log credit transactions for new subscriptions
+                $this->logInitialCredits($subscription);
             }
-            $subscription->save();
 
             // Update payment status
             $payment = SubscriptionPayment::where('customer_subscription_id', $subscription->id)
@@ -118,9 +163,6 @@ class SubscriptionService
             if ($payment) {
                 $payment->markCompleted($transactionRef, $gatewayResponse);
             }
-
-            // Log credit transactions
-            $this->logInitialCredits($subscription);
         });
     }
 

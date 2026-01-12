@@ -290,4 +290,170 @@ class CreditService
             );
         }
     }
+
+    // ========== NEW SIMPLIFIED CREDIT SYSTEM ==========
+
+    /**
+     * Get simplified credit balance (single balance instead of 5 types)
+     */
+    public function getSimplifiedBalance(Customer $customer): array
+    {
+        $subscription = CustomerSubscription::where('customer_id', $customer->id)
+            ->active()
+            ->first();
+
+        if (!$subscription) {
+            return [
+                'has_subscription' => false,
+                'credit_balance' => 0,
+                'total_credits_used' => 0,
+                'subscription_end_date' => null,
+                'days_remaining' => 0,
+            ];
+        }
+
+        return [
+            'has_subscription' => true,
+            'subscription_id' => $subscription->id,
+            'subscription_name' => $subscription->subscription?->name,
+            'subscription_name_ar' => $subscription->subscription?->name_ar,
+            'credit_balance' => (float) $subscription->credit_balance,
+            'total_credits_used' => (float) $subscription->total_credits_used,
+            'subscription_end_date' => $subscription->end_date?->toDateString(),
+            'days_remaining' => $subscription->daysRemaining(),
+            'auto_renew' => $subscription->auto_renew,
+        ];
+    }
+
+    /**
+     * Apply simplified credits to order (deduct order total from credit_balance)
+     * Supports partial deduction if balance is less than order total
+     */
+    public function applySimplifiedCreditsToOrder(Customer $customer, Order $order): array
+    {
+        $subscription = CustomerSubscription::where('customer_id', $customer->id)
+            ->active()
+            ->first();
+
+        if (!$subscription) {
+            return [
+                'applied' => false,
+                'partial' => false,
+                'message' => 'No active subscription',
+                'amount_used' => 0,
+                'remaining_to_pay' => (float) $order->total_amount,
+            ];
+        }
+
+        $orderTotal = (float) $order->total_amount;
+        $availableBalance = $subscription->getCreditBalance();
+
+        if ($orderTotal <= 0) {
+            return [
+                'applied' => false,
+                'partial' => false,
+                'message' => 'Order has no amount to pay',
+                'amount_used' => 0,
+                'remaining_to_pay' => 0,
+            ];
+        }
+
+        // No credits available at all
+        if ($availableBalance <= 0) {
+            return [
+                'applied' => false,
+                'partial' => false,
+                'message' => 'No credit balance available',
+                'amount_used' => 0,
+                'credit_balance' => 0,
+                'remaining_to_pay' => $orderTotal,
+            ];
+        }
+
+        // Calculate how much to deduct (full or partial)
+        $amountToDeduct = min($availableBalance, $orderTotal);
+        $remainingToPay = $orderTotal - $amountToDeduct;
+        $isPartial = $amountToDeduct < $orderTotal;
+
+        // Deduct credits
+        DB::transaction(function () use ($customer, $order, $subscription, $amountToDeduct, $isPartial) {
+            $balanceBefore = $subscription->getCreditBalance();
+            
+            // Deduct from subscription
+            $subscription->credit_balance -= $amountToDeduct;
+            $subscription->total_credits_used += $amountToDeduct;
+            $subscription->save();
+            
+            // Log the transaction
+            CreditTransaction::create([
+                'customer_id' => $customer->id,
+                'customer_subscription_id' => $subscription->id,
+                'credit_type' => 'balance',
+                'amount' => $amountToDeduct,
+                'transaction_type' => CreditTransaction::TYPE_DEBIT,
+                'reference_type' => 'order',
+                'reference_id' => $order->id,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $subscription->getCreditBalance(),
+                'notes' => $isPartial 
+                    ? "Partial payment for Order #{$order->prefix}{$order->order_code} - Credits used: {$amountToDeduct} SAR"
+                    : "Order #{$order->prefix}{$order->order_code} - Credits used: {$amountToDeduct} SAR",
+                'created_by' => Auth::id(),
+            ]);
+        });
+
+        return [
+            'applied' => true,
+            'partial' => $isPartial,
+            'message' => $isPartial 
+                ? "Partial payment: {$amountToDeduct} SAR from credits, {$remainingToPay} SAR remaining to pay"
+                : "Full payment: {$amountToDeduct} SAR from credits",
+            'amount_used' => $amountToDeduct,
+            'subscription_id' => $subscription->id,
+            'remaining_balance' => $subscription->getCreditBalance(),
+            'remaining_to_pay' => $remainingToPay,
+        ];
+    }
+
+    /**
+     * Refund simplified credits for cancelled order
+     */
+    public function refundSimplifiedCredits(Customer $customer, Order $order): void
+    {
+        if (!$order->paid_via_subscription || !$order->subscription_credit_used) {
+            return;
+        }
+
+        $subscription = CustomerSubscription::find($order->customer_subscription_id);
+        
+        if (!$subscription) {
+            return;
+        }
+
+        $refundAmount = (float) $order->subscription_credit_used;
+        
+        if ($refundAmount > 0) {
+            $balanceBefore = $subscription->getCreditBalance();
+            
+            // Add back the credits
+            $subscription->addCreditBalance($refundAmount);
+            $subscription->total_credits_used -= $refundAmount;
+            $subscription->save();
+            
+            // Log the refund transaction
+            CreditTransaction::create([
+                'customer_id' => $customer->id,
+                'customer_subscription_id' => $subscription->id,
+                'credit_type' => 'balance',
+                'amount' => $refundAmount,
+                'transaction_type' => CreditTransaction::TYPE_CREDIT,
+                'reference_type' => 'refund',
+                'reference_id' => $order->id,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $subscription->getCreditBalance(),
+                'notes' => "Refund for cancelled order #{$order->prefix}{$order->order_code}",
+                'created_by' => Auth::id(),
+            ]);
+        }
+    }
 }

@@ -61,18 +61,69 @@ class CustomerSubscriptionController extends Controller
     public function adjustCredits(Request $request, CustomerSubscription $customerSubscription)
     {
         $request->validate([
-            'credit_type' => 'required|string|in:laundry,clothing,delivery,towel,special',
-            'amount' => 'required|integer|min:1',
+            'credit_type' => 'required|string|in:laundry,clothing,delivery,towel,special,balance',
+            'amount' => 'required|numeric|min:0.01',
             'adjustment_type' => 'required|string|in:add,deduct',
             'notes' => 'nullable|string|max:500',
         ]);
 
         $customer = $customerSubscription->customer;
         
+        // Handle simplified balance type
+        if ($request->credit_type === 'balance') {
+            $amount = (float) $request->amount;
+            
+            if ($request->adjustment_type === 'add') {
+                $customerSubscription->credit_balance += $amount;
+                $customerSubscription->save();
+                
+                // Log transaction
+                \App\Models\CreditTransaction::create([
+                    'customer_id' => $customer->id,
+                    'customer_subscription_id' => $customerSubscription->id,
+                    'credit_type' => 'balance',
+                    'amount' => $amount,
+                    'transaction_type' => 'credit',
+                    'reference_type' => 'admin_adjustment',
+                    'balance_before' => $customerSubscription->credit_balance - $amount,
+                    'balance_after' => $customerSubscription->credit_balance,
+                    'notes' => $request->notes ?? 'Admin credit adjustment',
+                    'created_by' => auth()->id(),
+                ]);
+            } else {
+                if ($customerSubscription->credit_balance < $amount) {
+                    return redirect()->back()
+                        ->with('error', __('Insufficient credit balance to deduct'));
+                }
+                
+                $customerSubscription->credit_balance -= $amount;
+                $customerSubscription->total_credits_used += $amount;
+                $customerSubscription->save();
+                
+                // Log transaction
+                \App\Models\CreditTransaction::create([
+                    'customer_id' => $customer->id,
+                    'customer_subscription_id' => $customerSubscription->id,
+                    'credit_type' => 'balance',
+                    'amount' => $amount,
+                    'transaction_type' => 'debit',
+                    'reference_type' => 'admin_adjustment',
+                    'balance_before' => $customerSubscription->credit_balance + $amount,
+                    'balance_after' => $customerSubscription->credit_balance,
+                    'notes' => $request->notes ?? 'Admin debit adjustment',
+                    'created_by' => auth()->id(),
+                ]);
+            }
+            
+            return redirect()->back()
+                ->with('success', __('Credit balance adjusted successfully'));
+        }
+        
+        // Legacy credit types
         $transaction = $this->creditService->adjustCredits(
             $customer,
             $request->credit_type,
-            $request->amount,
+            (int) $request->amount,
             $request->adjustment_type,
             $request->notes
         );

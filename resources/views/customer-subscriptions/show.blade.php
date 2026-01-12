@@ -114,93 +114,41 @@
                     <h4 class="card-title">{{ __('Credits Balance') }}</h4>
                 </div>
                 <div class="card-body">
-                    <div class="row text-center">
-                        <div class="col-4 mb-3">
-                            <div class="p-3 bg-info text-white rounded">
-                                <h3>{{ $customerSubscription->laundry_credits_remaining }}</h3>
-                                <small>{{ __('Laundry') }}</small>
-                            </div>
-                        </div>
-                        <div class="col-4 mb-3">
-                            <div class="p-3 bg-primary text-white rounded">
-                                <h3>{{ $customerSubscription->clothing_credits_remaining }}</h3>
-                                <small>{{ __('Clothing') }}</small>
-                            </div>
-                        </div>
-                        <div class="col-4 mb-3">
-                            <div class="p-3 bg-warning text-dark rounded">
-                                <h3>{{ $customerSubscription->delivery_credits_remaining }}</h3>
-                                <small>{{ __('Delivery') }}</small>
-                            </div>
-                        </div>
-                        <div class="col-4 mb-3">
-                            <div class="p-3 bg-secondary text-white rounded">
-                                <h3>{{ $customerSubscription->towel_credits_remaining }}</h3>
-                                <small>{{ __('Towel') }}</small>
-                            </div>
-                        </div>
-                        <div class="col-4 mb-3">
-                            <div class="p-3 bg-dark text-white rounded">
-                                <h3>{{ $customerSubscription->special_credits_remaining }}</h3>
-                                <small>{{ __('Special') }}</small>
-                            </div>
-                        </div>
-                        <div class="col-4 mb-3">
-                            <div class="p-3 bg-success text-white rounded">
-                                <h3>{{ $customerSubscription->getTotalCreditsRemaining() }}</h3>
-                                <small>{{ __('Total') }}</small>
-                            </div>
-                        </div>
+                    <!-- NEW: Simplified Credit Balance (Primary) -->
+                    <div class="text-center mb-4 p-4 bg-gradient-primary rounded">
+                        <h2 class="text-white mb-1">{{ number_format($customerSubscription->credit_balance ?? 0, 2) }} SAR</h2>
+                        <p class="text-white-50 mb-0">{{ __('Available Credit Balance') }}</p>
+                        @if($customerSubscription->total_credits_used > 0)
+                            <small class="text-white-50">{{ __('Used') }}: {{ number_format($customerSubscription->total_credits_used, 2) }} SAR</small>
+                        @endif
                     </div>
 
-                    <hr>
-
-                    <!-- Adjust Credits Form -->
-                    <h5>{{ __('Adjust Credits') }}</h5>
-                    <form action="{{ route('customer-subscription.adjust-credits', $customerSubscription->id) }}" method="POST">
-                        @csrf
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label>{{ __('Credit Type') }}</label>
-                                    <select name="credit_type" class="form-control" required>
-                                        <option value="laundry">{{ __('Laundry') }}</option>
-                                        <option value="clothing">{{ __('Clothing') }}</option>
-                                        <option value="delivery">{{ __('Delivery') }}</option>
-                                        <option value="towel">{{ __('Towel') }}</option>
-                                        <option value="special">{{ __('Special') }}</option>
-                                    </select>
-                                </div>
+                    <!-- NEW: Quick Credit Adjustment (Simplified) -->
+                    <div class="mb-4 p-3 bg-light rounded">
+                        <h6>{{ __('Quick Credit Adjustment') }}</h6>
+                        <form action="{{ route('customer-subscription.adjust-credits', $customerSubscription->id) }}" method="POST" class="d-flex align-items-end">
+                            @csrf
+                            <input type="hidden" name="credit_type" value="balance">
+                            <div class="form-group mr-2 mb-0">
+                                <label class="small">{{ __('Amount (SAR)') }}</label>
+                                <input type="number" step="0.01" name="amount" class="form-control" min="0.01" required style="width: 120px;">
                             </div>
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label>{{ __('Amount') }}</label>
-                                    <input type="number" name="amount" class="form-control" min="1" required>
-                                </div>
+                            <div class="form-group mr-2 mb-0">
+                                <label class="small">{{ __('Action') }}</label>
+                                <select name="adjustment_type" class="form-control">
+                                    <option value="add">{{ __('Add') }}</option>
+                                    <option value="deduct">{{ __('Deduct') }}</option>
+                                </select>
                             </div>
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label>{{ __('Action') }}</label>
-                                    <select name="adjustment_type" class="form-control" required>
-                                        <option value="add">{{ __('Add') }}</option>
-                                        <option value="deduct">{{ __('Deduct') }}</option>
-                                    </select>
-                                </div>
+                            <div class="form-group mr-2 mb-0 flex-grow-1">
+                                <label class="small">{{ __('Notes') }}</label>
+                                <input type="text" name="notes" class="form-control" placeholder="{{ __('Reason') }}">
                             </div>
-                            <div class="col-md-2">
-                                <div class="form-group">
-                                    <label>&nbsp;</label>
-                                    <button type="submit" class="btn btn-primary btn-block">
-                                        <i class="fas fa-save"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>{{ __('Notes') }}</label>
-                            <input type="text" name="notes" class="form-control" placeholder="{{ __('Reason for adjustment') }}">
-                        </div>
-                    </form>
+                            <button type="submit" class="btn btn-primary mb-0">
+                                <i class="fas fa-save"></i>
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>

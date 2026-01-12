@@ -24,6 +24,7 @@ class Subscription extends Model
         'delivery_credits',
         'towel_credits',
         'special_credits',
+        'credit_amount', // New: simplified credit amount (with bonus)
         'features',
         'is_active',
         'is_featured',
@@ -37,6 +38,7 @@ class Subscription extends Model
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
         'price' => 'decimal:2',
+        'credit_amount' => 'decimal:2',
     ];
 
     // Relationships

@@ -17,6 +17,7 @@ class SubscriptionResource extends JsonResource
             'description_ar' => $this->description_ar,
             'price' => (float) $this->price,
             'currency' => 'SAR',
+            'credit_amount' => (float) ($this->credit_amount ?? 0), // New: simplified credit with bonus
             'validity' => $this->validity,
             'validity_type' => $this->validity_type?->value,
             'validity_display' => $this->validity . ' ' . ($this->validity_type?->value ?? 'days'),
@@ -31,6 +32,9 @@ class SubscriptionResource extends JsonResource
             'features' => $this->features ?? [],
             'is_featured' => $this->is_featured,
             'color' => $this->color,
+            'discount_percentage' => $this->credit_amount > 0 && $this->price > 0 
+                ? round((($this->credit_amount - $this->price) / $this->price) * 100, 0) 
+                : null, // Show bonus percentage
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

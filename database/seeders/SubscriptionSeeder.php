@@ -16,6 +16,7 @@ class SubscriptionSeeder extends Seeder
                 'description' => 'Perfect for individuals with light laundry needs',
                 'description_ar' => 'مثالي للأفراد ذوي احتياجات الغسيل الخفيفة',
                 'price' => 199.00,
+                'credit_amount' => 250.00, // New: bonus credit (25% extra)
                 'validity' => 1,
                 'validity_type' => 'months',
                 'laundry_credits' => 50,
@@ -24,10 +25,9 @@ class SubscriptionSeeder extends Seeder
                 'towel_credits' => 5,
                 'special_credits' => 5,
                 'features' => json_encode([
-                    '50 Laundry Credits',
-                    '2 Free Deliveries',
-                    'Standard Support',
-                    'Mobile App Access',
+                    '250 ريال رصيد',
+                    'توصيل مجاني',
+                    'دعم عبر التطبيق',
                 ]),
                 'is_active' => true,
                 'is_featured' => false,

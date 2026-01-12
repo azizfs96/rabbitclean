@@ -13,6 +13,7 @@ class Order extends Model
     protected $casts = [
         'credits_used' => 'array',
         'paid_via_subscription' => 'boolean',
+        'subscription_credit_used' => 'decimal:2',
     ];
 
     public function customer()

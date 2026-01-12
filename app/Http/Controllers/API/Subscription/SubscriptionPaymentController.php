@@ -72,26 +72,35 @@ class SubscriptionPaymentController extends Controller
             ], 400);
         }
 
-        // Check if customer already has an active subscription
-        if ($this->subscriptionService->hasActiveSubscription($customer)) {
-            Log::warning('Subscription Payment Failed: Customer already has active subscription', [
+        // Check if customer already has an active subscription - allow re-subscription (add credits)
+        $existingSubscription = $this->subscriptionService->getActiveSubscription($customer);
+        $isResubscription = $existingSubscription !== null;
+        
+        if ($isResubscription) {
+            Log::info('Customer has existing subscription - will add credits after payment', [
                 'customer_id' => $customer->id,
+                'existing_subscription_id' => $existingSubscription->id,
+                'existing_balance' => $existingSubscription->credit_balance,
             ]);
-            return response()->json([
-                'success' => false,
-                'message' => 'You already have an active subscription',
-                'error_code' => 'ALREADY_SUBSCRIBED',
-            ], 400);
         }
 
         try {
-            // Create pending subscription
+            // Create pending subscription (will be used to add credits after payment)
             Log::info('Creating pending subscription');
             $customerSubscription = $this->subscriptionService->purchaseSubscription(
                 $customer,
                 $subscription,
-                'paytabs'
+                'paytabs',
+                $isResubscription // Pass flag to indicate this is a resubscription
             );
+            
+            // Store the existing subscription ID for credit addition after payment
+            if ($isResubscription) {
+                $customerSubscription->update([
+                    'notes' => 'Resubscription - add credits to subscription #' . $existingSubscription->id,
+                ]);
+            }
+            
             Log::info('Pending subscription created', ['customer_subscription_id' => $customerSubscription->id]);
 
             // Get PayTabs configuration

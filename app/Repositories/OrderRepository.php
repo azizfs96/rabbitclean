@@ -104,8 +104,6 @@ class OrderRepository extends Repository
             }
         }
 
-        // Apply subscription credits if customer has active subscription
-        $this->applySubscriptionCredits($order, $customer);
 
         return $order;
     }

@@ -12,6 +12,10 @@ class CustomerSubscriptionResource extends JsonResource
         return [
             'id' => $this->id,
             'subscription' => new SubscriptionResource($this->whenLoaded('subscription')),
+            // New: simplified credit balance
+            'credit_balance' => (float) ($this->credit_balance ?? 0),
+            'total_credits_used' => (float) ($this->total_credits_used ?? 0),
+            // Legacy: individual credit types (for backward compatibility)
             'credits_remaining' => [
                 'laundry' => $this->laundry_credits_remaining,
                 'clothing' => $this->clothing_credits_remaining,

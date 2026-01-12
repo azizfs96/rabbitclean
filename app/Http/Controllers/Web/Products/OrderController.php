@@ -222,17 +222,67 @@ class OrderController extends Controller
             return back()->with('error', 'Please add products to the order first');
         }
 
+        $creditMessage = null;
+        
+        // Apply subscription credits if customer has active subscription
+        $customer = $order->customer;
+        if ($customer && $order->total_amount > 0) {
+            $creditService = app(\App\Services\CreditService::class);
+            $balance = $creditService->getSimplifiedBalance($customer);
+            
+            if ($balance['has_subscription'] && $balance['credit_balance'] > 0) {
+                $result = $creditService->applySimplifiedCreditsToOrder($customer, $order);
+                
+                if ($result['applied']) {
+                    $updateData = [
+                        'customer_subscription_id' => $result['subscription_id'],
+                        'subscription_credit_used' => $result['amount_used'],
+                    ];
+                    
+                    if ($result['partial']) {
+                        // Partial payment - some amount still pending
+                        $updateData['paid_via_subscription'] = true;
+                        $updateData['payment_status'] = 'Partial';
+                        $creditMessage = "تم خصم {$result['amount_used']} ريال من رصيد الاشتراك. متبقي للدفع: {$result['remaining_to_pay']} ريال";
+                    } else {
+                        // Full payment via subscription
+                        $updateData['paid_via_subscription'] = true;
+                        $updateData['payment_status'] = 'paid';
+                        $creditMessage = "تم الدفع بالكامل من رصيد الاشتراك: {$result['amount_used']} ريال";
+                    }
+                    
+                    $order->update($updateData);
+                    
+                    \Log::info('Subscription credits applied to order', [
+                        'order_id' => $order->id,
+                        'amount_used' => $result['amount_used'],
+                        'partial' => $result['partial'],
+                        'remaining_to_pay' => $result['remaining_to_pay'],
+                        'remaining_balance' => $result['remaining_balance'],
+                    ]);
+                }
+            } elseif ($balance['has_subscription'] && $balance['credit_balance'] <= 0) {
+                $creditMessage = "رصيد الاشتراك = 0. سيتم إرسال فاتورة للعميل.";
+            }
+        }
+
         // Create transaction for the order if not exists
         if (!$order->transaction) {
             (new TransationRepository())->storeForOrder($order);
         }
 
-        // Update order status to confirmed and set payment status to Pending
-        $order->update([
+        // Update order status to confirmed and set payment status (if not paid via subscription)
+        $updateData = [
             'sent_to_customer' => true,
-            'payment_status' => 'Pending',
             'order_status' => OrderStatus::CREATE_INVOICE->value,
-        ]);
+        ];
+        
+        // Only set payment_status to Pending if not already set
+        if (!$order->paid_via_subscription) {
+            $updateData['payment_status'] = 'Pending';
+        }
+        
+        $order->update($updateData);
 
         // Refresh order and load customer with devices to ensure fresh data
         $order->refresh();
@@ -269,6 +319,11 @@ class OrderController extends Controller
             }
         }
 
-        return back()->with('success', 'Order sent to customer successfully');
+        $successMessage = 'Order sent to customer successfully';
+        if ($creditMessage) {
+            $successMessage .= ' - ' . $creditMessage;
+        }
+        
+        return back()->with('success', $successMessage);
     }
 }
