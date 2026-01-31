@@ -104,33 +104,37 @@ class OrderRepository extends Repository
             }
         }
 
+        // Handle subscription payment - deduct from credit balance
+        if ($request->payment_type === 'subscription') {
+            $this->applySubscriptionCreditsToOrder($order, $customer);
+        }
 
         return $order;
     }
 
     /**
-     * Apply subscription credits to an order if customer has active subscription
+     * Apply subscription credits to an order (simplified - single credit balance)
      */
-    protected function applySubscriptionCredits(Order $order, $customer): void
+    protected function applySubscriptionCreditsToOrder(Order $order, $customer): void
     {
         $creditService = app(\App\Services\CreditService::class);
         $balance = $creditService->getBalance($customer);
 
-        if (!$balance['has_subscription']) {
+        if (!$balance['has_subscription'] || $balance['credit_balance'] <= 0) {
             return;
         }
 
-        // Reload order with products to calculate credits
-        $order->load('products');
-        
-        $creditsResult = $creditService->applyCreditsToOrder($customer, $order);
+        // Use simplified credit system
+        $creditsResult = $creditService->applySimplifiedCreditsToOrder($customer, $order);
 
         if ($creditsResult['applied']) {
             $order->update([
                 'customer_subscription_id' => $creditsResult['subscription_id'],
-                'credits_used' => $creditsResult['credits_used'],
+                'subscription_credit_used' => $creditsResult['amount_used'],
                 'paid_via_subscription' => true,
-                'payment_status' => config('enums.payment_status.paid'),
+                'payment_status' => $creditsResult['partial'] 
+                    ? config('enums.payment_status.pending') // Partial - needs additional payment
+                    : config('enums.payment_status.paid'),   // Full - paid via credits
             ]);
         }
     }

@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 class CreditService
 {
     /**
-     * Get customer's credit balance
+     * Get customer's credit balance (Simplified - single balance)
      */
     public function getBalance(Customer $customer): array
     {
@@ -23,28 +23,22 @@ class CreditService
         if (!$subscription) {
             return [
                 'has_subscription' => false,
-                'laundry' => 0,
-                'clothing' => 0,
-                'delivery' => 0,
-                'towel' => 0,
-                'special' => 0,
-                'total' => 0,
+                'credit_balance' => 0,
+                'total_credits_used' => 0,
                 'subscription_end_date' => null,
                 'days_remaining' => 0,
+                'auto_renew' => false,
             ];
         }
 
         return [
             'has_subscription' => true,
             'subscription_id' => $subscription->id,
-            'subscription_name' => $subscription->subscription->name,
-            'laundry' => $subscription->laundry_credits_remaining,
-            'clothing' => $subscription->clothing_credits_remaining,
-            'delivery' => $subscription->delivery_credits_remaining,
-            'towel' => $subscription->towel_credits_remaining,
-            'special' => $subscription->special_credits_remaining,
-            'total' => $subscription->getTotalCreditsRemaining(),
-            'subscription_end_date' => $subscription->end_date->toDateString(),
+            'subscription_name' => $subscription->subscription?->name,
+            'subscription_name_ar' => $subscription->subscription?->name_ar,
+            'credit_balance' => (float) ($subscription->credit_balance ?? 0),
+            'total_credits_used' => (float) ($subscription->total_credits_used ?? 0),
+            'subscription_end_date' => $subscription->end_date?->toDateString(),
             'days_remaining' => $subscription->daysRemaining(),
             'auto_renew' => $subscription->auto_renew,
         ];

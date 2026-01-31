@@ -48,6 +48,10 @@ class SubscriptionController extends Controller
         $validated['is_featured'] = $request->has('is_featured');
         $validated['features'] = array_filter($request->input('features', []));
         $validated['sort_order'] = Subscription::max('sort_order') + 1;
+        
+        // Auto-calculate credit_amount as 30% bonus of price (زبادة)
+        // credit_amount = price + (price * 0.30) = price * 1.30
+        $validated['credit_amount'] = $validated['price'] * 1.30;
 
         Subscription::create($validated);
 
@@ -86,6 +90,10 @@ class SubscriptionController extends Controller
         $validated['is_active'] = $request->has('is_active');
         $validated['is_featured'] = $request->has('is_featured');
         $validated['features'] = array_filter($request->input('features', []));
+        
+        // Auto-calculate credit_amount as 30% bonus of price (زبادة)
+        // credit_amount = price + (price * 0.30) = price * 1.30
+        $validated['credit_amount'] = $validated['price'] * 1.30;
 
         $subscription->update($validated);
 

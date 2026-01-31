@@ -6,4 +6,5 @@ enum PaymentGateway: string
 {
     case PAYTABS = 'paytabs';
     case CASH = 'cash';
+    case SUBSCRIPTION = 'subscription';
 }

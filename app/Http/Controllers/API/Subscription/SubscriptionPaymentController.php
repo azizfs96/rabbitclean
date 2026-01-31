@@ -26,13 +26,18 @@ class SubscriptionPaymentController extends Controller
 
     /**
      * Initiate subscription payment via PayTabs
+     * Handles both subscription renewal (is_order=false) and order payment (is_order=true)
      */
     public function initiatePayment(Request $request, Subscription $subscription): JsonResponse
     {
+        $isOrder = $request->query('is_order', false);
+        $isOrder = filter_var($isOrder, FILTER_VALIDATE_BOOLEAN);
+        
         Log::info('Subscription Payment Initiation Started', [
             'subscription_id' => $subscription->id,
             'subscription_name' => $subscription->name,
             'user_id' => auth()->id(),
+            'is_order' => $isOrder,
             'request_data' => $request->all(),
         ]);
 
@@ -72,6 +77,62 @@ class SubscriptionPaymentController extends Controller
             ], 400);
         }
 
+        // Handle order payment flow (is_order=true)
+        if ($isOrder) {
+            return $this->handleOrderPayment($request, $subscription, $customer);
+        }
+
+        // Handle subscription renewal flow (is_order=false)
+        return $this->handleSubscriptionPayment($request, $subscription, $customer);
+    }
+
+    /**
+     * Handle order payment using subscription credits
+     */
+    private function handleOrderPayment(Request $request, Subscription $subscription, $customer): JsonResponse
+    {
+        Log::info('Processing order payment via subscription credits', [
+            'customer_id' => $customer->id,
+            'subscription_id' => $subscription->id,
+        ]);
+
+        // Check if customer has active subscription with credits
+        $activeSubscription = $this->subscriptionService->getActiveSubscription($customer);
+        
+        if (!$activeSubscription) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No active subscription found. Please purchase a subscription first.',
+                'error_code' => 'NO_ACTIVE_SUBSCRIPTION',
+            ], 400);
+        }
+
+        if ($activeSubscription->credit_balance <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Insufficient credit balance. Please renew your subscription.',
+                'error_code' => 'INSUFFICIENT_CREDITS',
+                'credit_balance' => $activeSubscription->credit_balance,
+            ], 400);
+        }
+
+        // Return success with credit balance info for order processing
+        return response()->json([
+            'success' => true,
+            'message' => 'Credits available for order payment',
+            'data' => [
+                'credit_balance' => $activeSubscription->credit_balance,
+                'subscription_id' => $activeSubscription->id,
+                'can_pay_with_credits' => true,
+            ],
+        ]);
+    }
+
+    /**
+     * Handle subscription renewal/purchase payment
+     */
+    private function handleSubscriptionPayment(Request $request, Subscription $subscription, $customer): JsonResponse
+    {
         // Check if customer already has an active subscription - allow re-subscription (add credits)
         $existingSubscription = $this->subscriptionService->getActiveSubscription($customer);
         $isResubscription = $existingSubscription !== null;
