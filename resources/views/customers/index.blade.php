@@ -46,12 +46,12 @@
                                 <tbody>
                                     @foreach ($customers as $customer)
                                         <tr>
-                                            <td>{{ $customer->user->name }}</td>
+                                            <td>{{ $customer->user ? $customer->user->name : 'N/A' }}</td>
                                             <td>
-                                                {{ $customer->user->email }}
+                                                {{ $customer->user?->email }}
                                             </td>
                                             <td>
-                                                {{ $customer->user->mobile }}
+                                                {{ $customer->user?->mobile }}
                                             </td>
                                             @canany(['customer.show', 'customer.edit'])
                                             <td>

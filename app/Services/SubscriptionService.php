@@ -37,6 +37,8 @@ class SubscriptionService
             ->first();
     }
 
+
+
     /**
      * Check if customer has active subscription
      */

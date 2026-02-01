@@ -176,7 +176,7 @@
                                     {{ Carbon\Carbon::parse($revenue->delivery_date)->format('M d, Y') }} <br>
                                     <small>{{ Carbon\Carbon::parse($revenue->delivery_hour)->format('h:i a') }}</small>
                                 </td>
-                                <td>{{ $revenue->customer->user->name }}</td>
+                                <td>{{ $revenue->customer->user ? $revenue->customer->user->name : 'N/A' }}</td>
                                 @php
                                     $quantity = 0;
                                     foreach($revenue->products as $product){

@@ -58,7 +58,7 @@
                                                     $quantity += $product->pivot->quantity;
                                                 }
                                             @endphp
-                                            <td>{{ $revenue->customer->user->name }}</td>
+                                            <td>{{ $revenue->customer->user ? $revenue->customer->user->name : 'N/A' }}</td>
                                             <td>{{ $quantity }} {{__('Pieces')}}</td>
                                             <td>{{ currencyPosition($revenue->amount) }}</td>
                                             @can('order.show')

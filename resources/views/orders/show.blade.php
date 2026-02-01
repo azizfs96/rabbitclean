@@ -6,7 +6,7 @@
             <div class="col-lg-12">
                 <div class="card-header py-2 d-flex justify-content-between align-items-center">
                     <h3 class="card-title m-0">
-                        {{ __('Order') . ' ' . __('Details') . ' ' . __('of') }} {{ $order->customer->user->name }}
+                        {{ __('Order') . ' ' . __('Details') . ' ' . __('of') }} {{ $order->customer->user ? $order->customer->user->name : 'N/A' }}
                     </h3>
 
                     <div class="">
@@ -137,7 +137,7 @@
                             <table class="table table-bordered table-striped {{ session()->get('local') }}">
                                 <tr>
                                     <th class="py-2">{{ __('Name') }}</th>
-                                    <td class="py-2" class="py-2">{{ $order->customer->user->name }}</td>
+                                    <td class="py-2" class="py-2">{{ $order->customer->user ? $order->customer->user->name : 'N/A' }}</td>
                                 </tr>
                                 <tr>
                                     <th class="py-2">{{ __('Customer') . ' ' . __('Photo') }}</th>
@@ -428,7 +428,7 @@
                                                                         <div
                                                                             class="card text-dark bg-white shadow bg-body rounded my-2 p-2">
                                                                             <h4 class="m-0">{{ __('Name') }}:
-                                                                                {{ $order->customer->user->name }}</h4>
+                                                                                {{ $order->customer->user ? $order->customer->user->name : 'N/A' }}</h4>
                                                                             <h4 class="m-0">{{ __('Order Id') }}:
                                                                                 #{{ $order->prefix . $order->order_code }}
                                                                             </h4>

@@ -71,7 +71,7 @@
                                                     <td class="py-2 px-0 text-center" dir="{{ app()->getLocale() == 'ar' ? 'rtl' : 'ltr' }}">
                                                         <input type="checkbox" name="customer[]" value="{{ $customer->id }}" dir="{{ app()->getLocale() == 'ar' ? 'rtl' : 'ltr' }}">
                                                     </td>
-                                                    <td class="py-2" dir="{{ app()->getLocale() == 'ar' ? 'rtl' : 'ltr' }}">{{ $customer->user->name }}</td>
+                                                    <td class="py-2" dir="{{ app()->getLocale() == 'ar' ? 'rtl' : 'ltr' }}">{{ $customer->user ? $customer->user->name : 'N/A' }}</td>
                                                     <td class="py-2" dir="{{ app()->getLocale() == 'ar' ? 'rtl' : 'ltr' }}">{{ $customer->user->mobile }}</td>
                                                     <td dir="{{ app()->getLocale() == 'ar' ? 'rtl' : 'ltr' }}">{{ $customer->user->email }}</td>
                                                 </tr>

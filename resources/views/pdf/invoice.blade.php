@@ -210,7 +210,7 @@
             </div>
         </div>
 
-        <h4 style="font-weight: normal !important"> Customer: {{ $order->customer->user->name }}</h4>
+        <h4 style="font-weight: normal !important"> Customer: {{ $order->customer->user ? $order->customer->user->name : 'N/A' }}</h4>
         <div class="address_line">
             <div class="w-70 float-left">
                 <h4>Area: {{ $order->address->area }}</h4>
