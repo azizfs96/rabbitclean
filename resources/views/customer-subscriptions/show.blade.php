@@ -79,9 +79,17 @@
                     <hr>
 
                     <!-- Actions -->
-                    @if($customerSubscription->status === 'active')
+                    @if(in_array($customerSubscription->status, ['active', 'expired']))
                     <div class="row">
                         <div class="col-12">
+                            <form action="{{ route('customer-subscription.renew', $customerSubscription->id) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ __('Are you sure you want to renew this subscription? This will add credits from the plan.') }}')">
+                                @csrf
+                                <button type="submit" class="btn btn-success mb-2">
+                                    <i class="fas fa-sync"></i> {{ __('Renew Subscription') }}
+                                </button>
+                            </form>
+
+                            @if($customerSubscription->status === 'active')
                             <form action="{{ route('customer-subscription.extend', $customerSubscription->id) }}" method="POST" class="d-inline">
                                 @csrf
                                 <div class="input-group mb-2">
@@ -100,6 +108,7 @@
                                     <i class="fas fa-times"></i> {{ __('Cancel Subscription') }}
                                 </button>
                             </form>
+                            @endif
                         </div>
                     </div>
                     @endif

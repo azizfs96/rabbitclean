@@ -49,11 +49,11 @@ Route::middleware('guest:api')->group(function () {
     Route::post('/login/otp/request', [AuthController::class, 'requestLoginOtp']);
     Route::post('/login/otp/verify', [AuthController::class, 'verifyLoginOtp']);
     Route::post('/profile/complete', [AuthController::class, 'completeProfile']);
-    
+
     // Legacy endpoints (kept for backward compatibility)
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
-    
+
     // Password reset
     Route::post('/forgot-password', [ForgotPasswordController::class, 'forgotPassword']);
     Route::post('/forgot-password/otp/verify', [ForgotPasswordController::class, 'verifyOtp']);
@@ -110,11 +110,11 @@ Route::middleware(['auth:api', 'role:customer'])->group(function () {
     Route::post('/subscriptions/{customerSubscription}/activate', [SubscriptionController::class, 'activate']);
     Route::post('/my-subscription/cancel', [SubscriptionController::class, 'cancel']);
     Route::post('/my-subscription/toggle-auto-renew', [SubscriptionController::class, 'toggleAutoRenew']);
-    
+
     // Credit Routes
     Route::get('/credits/balance', [SubscriptionController::class, 'creditBalance']);
     Route::get('/credits/history', [SubscriptionController::class, 'creditHistory']);
-    
+
     // Subscription Orders
     Route::get('/subscription/orders', [SubscriptionController::class, 'subscriptionOrders']);
 
@@ -130,10 +130,10 @@ Route::get('/subscriptions/{subscription}', [SubscriptionController::class, 'sho
 // Subscription Payment Callbacks (no auth required - called by PayTabs)
 Route::post('/subscription/payment/callback', [SubscriptionPaymentController::class, 'handleCallback'])->name('subscription.payment.callback');
 Route::match(['get', 'post'], '/subscription/payment/return', [SubscriptionPaymentController::class, 'handleReturn'])->name('subscription.payment.return');
-Route::controller(PosController::class)->group(function(){
+Route::controller(PosController::class)->group(function () {
     Route::post('/pos', 'posStore');
-    Route::get('/pos/customer','posCustomer');
-    Route::get('/pos/service','posService');
+    Route::get('/pos/customer', 'posCustomer');
+    Route::get('/pos/service', 'posService');
     Route::get('/fetch/variants', 'fetchVariants')->name('pos.fetch.variants');
     Route::get('/order/payment', 'payment')->name('order.payment');
     Route::get('/fetch/products', 'fetchProducts')->name('pos.fetch.products');
@@ -177,7 +177,7 @@ Route::group(['prefix' => '/admin', 'middleware' => ['auth:api', 'role:admin']],
     // Order Review Management
     Route::get('/orders/pending-review', [OrderReviewController::class, 'pendingOrders']);
     Route::post('/orders/{order}/review', [OrderReviewController::class, 'updateOrderReview']);
-    
+
     // Review Settings
     Route::get('/review-settings', [OrderReviewController::class, 'getReviewSettings']);
     Route::post('/review-settings', [OrderReviewController::class, 'updateReviewSettings']);
@@ -185,8 +185,8 @@ Route::group(['prefix' => '/admin', 'middleware' => ['auth:api', 'role:admin']],
     Route::get('/logout', [LoginController::class, 'logout']);
 });
 
-    // Payment Gateway
-    // Route::controller(PaymentGatewayController::class)->group(function () {
-    //     Route::get('/payment-gateway', 'index')->name('payment-gateway.index');
-    //     Route::post('payment/process/{order}', 'process')->name('payment.process');
-    // });
+// Payment Gateway
+// Route::controller(PaymentGatewayController::class)->group(function () {
+//     Route::get('/payment-gateway', 'index')->name('payment-gateway.index');
+//     Route::post('payment/process/{order}', 'process')->name('payment.process');
+// });

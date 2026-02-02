@@ -72,8 +72,8 @@
                                                         <input type="checkbox" name="customer[]" value="{{ $customer->id }}" dir="{{ app()->getLocale() == 'ar' ? 'rtl' : 'ltr' }}">
                                                     </td>
                                                     <td class="py-2" dir="{{ app()->getLocale() == 'ar' ? 'rtl' : 'ltr' }}">{{ $customer->user ? $customer->user->name : 'N/A' }}</td>
-                                                    <td class="py-2" dir="{{ app()->getLocale() == 'ar' ? 'rtl' : 'ltr' }}">{{ $customer->user->mobile }}</td>
-                                                    <td dir="{{ app()->getLocale() == 'ar' ? 'rtl' : 'ltr' }}">{{ $customer->user->email }}</td>
+                                                    <td class="py-2" dir="{{ app()->getLocale() == 'ar' ? 'rtl' : 'ltr' }}">{{ $customer->user ? $customer->user->mobile : 'N/A' }}</td>
+                                                    <td dir="{{ app()->getLocale() == 'ar' ? 'rtl' : 'ltr' }}">{{ $customer->user ? $customer->user->email : 'N/A' }}</td>
                                                 </tr>
                                             @endforeach
                                         @endcan

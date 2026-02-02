@@ -48,8 +48,8 @@ use App\Http\Controllers\Web\Subscription\CustomerSubscriptionController;
 
 
 
-Route::get('privacy-policy',[LoginController::class, 'privacyPolicy'])->name('privacy.policy');
-Route::get('terms-condition',[LoginController::class,'termsCondition'])->name('terms.condition');
+Route::get('privacy-policy', [LoginController::class, 'privacyPolicy'])->name('privacy.policy');
+Route::get('terms-condition', [LoginController::class, 'termsCondition'])->name('terms.condition');
 
 Route::get('/login', [LoginController::class, 'index'])->name('login');
 Route::post('/login', [LoginController::class, 'login'])->name('login');
@@ -194,6 +194,7 @@ Route::middleware(['auth', 'role:admin|visitor|root', 'permission_check'])->grou
         Route::post('/customer-subscriptions/{customerSubscription}/adjust-credits', 'adjustCredits')->name('customer-subscription.adjust-credits');
         Route::post('/customer-subscriptions/{customerSubscription}/extend', 'extend')->name('customer-subscription.extend');
         Route::post('/customer-subscriptions/{customerSubscription}/cancel', 'cancel')->name('customer-subscription.cancel');
+        Route::post('/customer-subscriptions/{customerSubscription}/renew', 'renew')->name('customer-subscription.renew');
     });
 });
 
@@ -257,7 +258,7 @@ Route::middleware(['auth', 'role:root|visitor'])->group(function () {
     });
 
     //  Msegat SMS Gateway (Configuration & Testing)
-    Route::controller(SMSGatewaySetupController::class)->group(function(){
+    Route::controller(SMSGatewaySetupController::class)->group(function () {
         Route::get('/sms-gateway', 'index')->name('sms-gateway.index');
         Route::put('/sms-gateway', 'update')->name('sms-gateway.update');
         Route::post('/sms-gateway/send-test', 'sendTest')->name('sms-gateway.send-test');
@@ -289,8 +290,8 @@ Route::middleware(['auth', 'role:root|visitor'])->group(function () {
 Route::get('/new-orders', [ApiOrderController::class, 'newOrder'])->name('new.orders');
 
 
- // Payment Gateway
- Route::controller(PaymentGatewayController::class)->group(function () {
+// Payment Gateway
+Route::controller(PaymentGatewayController::class)->group(function () {
     Route::get('/payment-gateway', 'index')->name('payment-gateway.index');
     Route::post('/payment-gateway/{paymentGateway}/update', 'update')->name('payment-gateway.update');
     Route::get('/payment-gateway/{paymentGateway}/toggle', 'toggle')->name('payment-gateway.toggle');
@@ -298,18 +299,18 @@ Route::get('/new-orders', [ApiOrderController::class, 'newOrder'])->name('new.or
 });
 // pos routes
 // Route::middleware(['auth', 'role:vendor|store'])->group(function () {
-    // pos route
-    Route::controller(PosController::class)->group(function () {
-        Route::get('/pos', 'index')->name('pos.index');
-        Route::post('/pos', 'store')->name('pos.store');
-        Route::get('/pos/sales', 'sales')->name('pos.sales');
-        Route::get('/pos/payment', 'payment')->name('pos.payment');
-        Route::post('/pos/customer', 'storeCustomer')->name('pos.customerStore');
-        Route::post('/pos/address', 'storeAddress')->name('pos.addressStore');
-        Route::get('/pos/sales/{order}/details', 'show')->name('pos.order.show');
-        Route::get('/fetch/variants', 'fetchVariants')->name('pos.fetch.variants');
-        Route::get('/fetch/products', 'fetchProducts')->name('pos.fetch.products');
-    });
+// pos route
+Route::controller(PosController::class)->group(function () {
+    Route::get('/pos', 'index')->name('pos.index');
+    Route::post('/pos', 'store')->name('pos.store');
+    Route::get('/pos/sales', 'sales')->name('pos.sales');
+    Route::get('/pos/payment', 'payment')->name('pos.payment');
+    Route::post('/pos/customer', 'storeCustomer')->name('pos.customerStore');
+    Route::post('/pos/address', 'storeAddress')->name('pos.addressStore');
+    Route::get('/pos/sales/{order}/details', 'show')->name('pos.order.show');
+    Route::get('/fetch/variants', 'fetchVariants')->name('pos.fetch.variants');
+    Route::get('/fetch/products', 'fetchProducts')->name('pos.fetch.products');
+});
 // });
 Route::get('change-language', function () {
     App::setLocale(\request()->ln);

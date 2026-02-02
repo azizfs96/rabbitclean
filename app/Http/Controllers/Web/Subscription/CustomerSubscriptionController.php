@@ -36,20 +36,20 @@ class CustomerSubscriptionController extends Controller
             $search = $request->search;
             $query->whereHas('customer.user', function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%")
-                  ->orWhere('mobile', 'like', "%{$search}%");
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('mobile', 'like', "%{$search}%");
             });
         }
 
         $customerSubscriptions = $query->paginate(15);
-        
+
         return view('customer-subscriptions.index', compact('customerSubscriptions'));
     }
 
     public function show(CustomerSubscription $customerSubscription)
     {
         $customerSubscription->load(['customer.user', 'subscription', 'creditTransactions']);
-        
+
         $creditHistory = $customerSubscription->creditTransactions()
             ->orderBy('created_at', 'desc')
             ->limit(50)
@@ -68,15 +68,15 @@ class CustomerSubscriptionController extends Controller
         ]);
 
         $customer = $customerSubscription->customer;
-        
+
         // Handle simplified balance type
         if ($request->credit_type === 'balance') {
             $amount = (float) $request->amount;
-            
+
             if ($request->adjustment_type === 'add') {
                 $customerSubscription->credit_balance += $amount;
                 $customerSubscription->save();
-                
+
                 // Log transaction
                 \App\Models\CreditTransaction::create([
                     'customer_id' => $customer->id,
@@ -95,11 +95,11 @@ class CustomerSubscriptionController extends Controller
                     return redirect()->back()
                         ->with('error', __('Insufficient credit balance to deduct'));
                 }
-                
+
                 $customerSubscription->credit_balance -= $amount;
                 $customerSubscription->total_credits_used += $amount;
                 $customerSubscription->save();
-                
+
                 // Log transaction
                 \App\Models\CreditTransaction::create([
                     'customer_id' => $customer->id,
@@ -114,11 +114,11 @@ class CustomerSubscriptionController extends Controller
                     'created_by' => auth()->id(),
                 ]);
             }
-            
+
             return redirect()->back()
                 ->with('success', __('Credit balance adjusted successfully'));
         }
-        
+
         // Legacy credit types
         $transaction = $this->creditService->adjustCredits(
             $customer,
@@ -155,6 +155,68 @@ class CustomerSubscriptionController extends Controller
 
         return redirect()->back()
             ->with('success', __('Subscription cancelled successfully'));
+    }
+
+    public function renew(Request $request, CustomerSubscription $customerSubscription)
+    {
+        $plan = $customerSubscription->subscription;
+        $customer = $customerSubscription->customer;
+
+        try {
+            // Calculate credit amount to add (use credit_amount if set, otherwise use price)
+            $creditAmount = $plan->credit_amount ? (float) $plan->credit_amount : (float) ($plan->price ?? 0);
+
+            // Store balance before for logging
+            $balanceBefore = $customerSubscription->credit_balance;
+
+            // Directly add credits to the existing subscription
+            $customerSubscription->credit_balance += $creditAmount;
+
+            // Extend the subscription end date based on plan validity
+            $newEndDate = $this->subscriptionService->calculateRenewalEndDate($plan, $customerSubscription->end_date);
+            $customerSubscription->end_date = $newEndDate;
+
+            // Update amount paid (add to existing)
+            $customerSubscription->amount_paid += $plan->price ?? 0;
+
+            // Ensure status is active after renewal
+            $customerSubscription->status = 'active';
+
+            // Save the updated subscription
+            $customerSubscription->save();
+
+            // Log the credit transaction
+            \App\Models\CreditTransaction::create([
+                'customer_id' => $customer->id,
+                'customer_subscription_id' => $customerSubscription->id,
+                'credit_type' => 'balance',
+                'amount' => $creditAmount,
+                'transaction_type' => 'credit',
+                'reference_type' => 'admin_renewal',
+                'balance_before' => $balanceBefore,
+                'balance_after' => $customerSubscription->credit_balance,
+                'notes' => "تجديد الاشتراك بواسطة الإدارة - خطة: {$plan->name}",
+                'created_by' => auth()->id(),
+            ]);
+
+            \Log::info('Subscription renewed directly', [
+                'customer_subscription_id' => $customerSubscription->id,
+                'plan_id' => $plan->id,
+                'credits_added' => $creditAmount,
+                'new_balance' => $customerSubscription->credit_balance,
+                'new_end_date' => $newEndDate,
+            ]);
+
+            return redirect()->back()
+                ->with('success', __('Subscription renewed successfully. Added :amount SAR credits.', ['amount' => number_format($creditAmount, 2)]));
+        } catch (\Exception $e) {
+            \Log::error('Subscription renewal failed', [
+                'customer_subscription_id' => $customerSubscription->id,
+                'error' => $e->getMessage(),
+            ]);
+            return redirect()->back()
+                ->with('error', __('Failed to renew subscription: ' . $e->getMessage()));
+        }
     }
 
     public function assignSubscription(Request $request)
@@ -194,7 +256,7 @@ class CustomerSubscriptionController extends Controller
                 $q->where('status', 'active');
             })
             ->get();
-        
+
         $subscriptions = Subscription::active()->ordered()->get();
 
         return view('customer-subscriptions.create', compact('customers', 'subscriptions'));

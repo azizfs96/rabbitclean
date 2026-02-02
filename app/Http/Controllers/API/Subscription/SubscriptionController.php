@@ -63,7 +63,7 @@ class SubscriptionController extends Controller
     public function mySubscription(): JsonResponse
     {
         $customer = auth()->user()->customer;
-        
+
         if (!$customer) {
             return response()->json([
                 'success' => false,
@@ -90,6 +90,10 @@ class SubscriptionController extends Controller
 
     /**
      * Purchase a subscription
+     * Customer can purchase/renew if:
+     * - They have no subscription
+     * - Their subscription has expired (end_date passed)
+     * - Their credit_balance is 0 or less
      */
     public function purchase(Request $request, Subscription $subscription): JsonResponse
     {
@@ -98,7 +102,7 @@ class SubscriptionController extends Controller
         ]);
 
         $customer = auth()->user()->customer;
-        
+
         if (!$customer) {
             return response()->json([
                 'success' => false,
@@ -113,12 +117,27 @@ class SubscriptionController extends Controller
             ], 400);
         }
 
-        // Check if customer already has an active subscription
-        if ($this->subscriptionService->hasActiveSubscription($customer)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You already have an active subscription',
-            ], 400);
+        // Check if customer has any subscription (active or not)
+        $existingSubscription = CustomerSubscription::where('customer_id', $customer->id)
+            ->where('status', CustomerSubscription::STATUS_ACTIVE)
+            ->first();
+
+        // Block only if subscription is truly active: status=active AND not expired AND has balance
+        if ($existingSubscription) {
+            $isExpired = $existingSubscription->end_date < now()->toDateString();
+            $hasBalance = $existingSubscription->credit_balance > 0;
+
+            // Only block if subscription is not expired AND has credit balance
+            if (!$isExpired && $hasBalance) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You already have an active subscription with available credits',
+                    'data' => [
+                        'credit_balance' => $existingSubscription->credit_balance,
+                        'end_date' => $existingSubscription->end_date->format('Y-m-d'),
+                    ]
+                ], 400);
+            }
         }
 
         $paymentGateway = $request->input('payment_gateway', 'paytabs');
@@ -143,6 +162,7 @@ class SubscriptionController extends Controller
                 'payment_required' => $paymentGateway !== 'cash',
                 'amount' => $subscription->price,
                 'currency' => 'SAR',
+                'is_renewal' => $existingSubscription !== null,
             ],
         ]);
     }
@@ -241,7 +261,7 @@ class SubscriptionController extends Controller
     public function creditBalance(): JsonResponse
     {
         $customer = auth()->user()->customer;
-        
+
         if (!$customer) {
             return response()->json([
                 'success' => false,
@@ -264,7 +284,7 @@ class SubscriptionController extends Controller
     public function creditHistory(Request $request): JsonResponse
     {
         $customer = auth()->user()->customer;
-        
+
         if (!$customer) {
             return response()->json([
                 'success' => false,
@@ -290,7 +310,7 @@ class SubscriptionController extends Controller
     public function subscriptionOrders(): JsonResponse
     {
         $customer = auth()->user()->customer;
-        
+
         if (!$customer) {
             return response()->json([
                 'success' => false,

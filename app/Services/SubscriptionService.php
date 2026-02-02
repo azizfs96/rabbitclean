@@ -65,13 +65,8 @@ class SubscriptionService
             $customerSubscription = CustomerSubscription::create([
                 'customer_id' => $customer->id,
                 'subscription_id' => $plan->id,
-                'laundry_credits_remaining' => $plan->laundry_credits,
-                'clothing_credits_remaining' => $plan->clothing_credits,
-                'delivery_credits_remaining' => $plan->delivery_credits,
-                'towel_credits_remaining' => $plan->towel_credits,
-                'special_credits_remaining' => $plan->special_credits,
-                'credit_balance' => $plan->credit_amount ?? 0, // New: simplified credit balance
-                'total_credits_used' => 0, // New: start with 0 used
+                'credit_balance' => $plan->credit_amount ? $plan->credit_amount : ($plan->price ?? 0),
+                'total_credits_used' => 0,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'status' => CustomerSubscription::STATUS_PENDING,
@@ -102,49 +97,74 @@ class SubscriptionService
     public function activateSubscription(CustomerSubscription $subscription, ?string $transactionRef = null, ?array $gatewayResponse = null): void
     {
         DB::transaction(function () use ($subscription, $transactionRef, $gatewayResponse) {
-            // Check for existing active subscription
+            // Check for existing subscription with status 'active'
             $existingSubscription = CustomerSubscription::where('customer_id', $subscription->customer_id)
                 ->where('id', '!=', $subscription->id)
                 ->where('status', CustomerSubscription::STATUS_ACTIVE)
                 ->first();
 
             if ($existingSubscription) {
-                // Add credits to existing subscription instead of creating new
-                $creditAmount = $subscription->credit_balance ?? 0;
-                $existingSubscription->credit_balance += $creditAmount;
-                
-                // Extend the end date if the existing one is shorter
-                if ($subscription->end_date > $existingSubscription->end_date) {
-                    $existingSubscription->end_date = $subscription->end_date;
+                // Check if existing subscription should still be active
+                $isExpired = $existingSubscription->end_date < now()->toDateString();
+                $hasBalance = $existingSubscription->credit_balance > 0;
+
+                if ($isExpired || !$hasBalance) {
+                    // Old subscription has expired or has no balance - mark it as expired
+                    $existingSubscription->status = CustomerSubscription::STATUS_EXPIRED;
+                    $existingSubscription->save();
+
+                    \Log::info('Old subscription marked as expired for renewal', [
+                        'old_subscription_id' => $existingSubscription->id,
+                        'was_expired_by_date' => $isExpired,
+                        'had_balance' => $hasBalance,
+                    ]);
+
+                    // Activate new subscription with fresh credits
+                    $subscription->status = CustomerSubscription::STATUS_ACTIVE;
+                    if ($transactionRef) {
+                        $subscription->payment_reference = $transactionRef;
+                    }
+                    $subscription->save();
+
+                    // Log initial credits for new subscription
+                    $this->logInitialCredits($subscription);
+                } else {
+                    // Old subscription is still valid - add credits to it
+                    $creditAmount = $subscription->credit_balance ?? 0;
+                    $existingSubscription->credit_balance += $creditAmount;
+
+                    // Extend the end date if the new one is longer
+                    if ($subscription->end_date > $existingSubscription->end_date) {
+                        $existingSubscription->end_date = $subscription->end_date;
+                    }
+
+                    $existingSubscription->save();
+
+                    // Log the credit addition
+                    \App\Models\CreditTransaction::create([
+                        'customer_id' => $subscription->customer_id,
+                        'customer_subscription_id' => $existingSubscription->id,
+                        'credit_type' => 'balance',
+                        'amount' => $creditAmount,
+                        'transaction_type' => 'credit',
+                        'reference_type' => 'subscription_renewal',
+                        'reference_id' => $subscription->id,
+                        'balance_before' => $existingSubscription->credit_balance - $creditAmount,
+                        'balance_after' => $existingSubscription->credit_balance,
+                        'notes' => "إضافة رصيد من اشتراك جديد: {$creditAmount} ريال",
+                    ]);
+
+                    // Mark the new subscription as merged (not active)
+                    $subscription->status = 'merged';
+                    $subscription->save();
+
+                    \Log::info('Credits added to existing active subscription', [
+                        'new_subscription_id' => $subscription->id,
+                        'existing_subscription_id' => $existingSubscription->id,
+                        'credits_added' => $creditAmount,
+                        'new_balance' => $existingSubscription->credit_balance,
+                    ]);
                 }
-                
-                $existingSubscription->save();
-                
-                // Log the credit addition
-                \App\Models\CreditTransaction::create([
-                    'customer_id' => $subscription->customer_id,
-                    'customer_subscription_id' => $existingSubscription->id,
-                    'credit_type' => 'balance',
-                    'amount' => $creditAmount,
-                    'transaction_type' => 'credit',
-                    'reference_type' => 'subscription_renewal',
-                    'reference_id' => $subscription->id,
-                    'balance_before' => $existingSubscription->credit_balance - $creditAmount,
-                    'balance_after' => $existingSubscription->credit_balance,
-                    'notes' => "إضافة رصيد من اشتراك جديد: {$creditAmount} ريال",
-                ]);
-                
-                // Mark the new subscription as merged (not active)
-                $subscription->status = 'merged';
-                $subscription->notes = 'Credits added to existing subscription #' . $existingSubscription->id;
-                $subscription->save();
-                
-                \Log::info('Credits added to existing subscription', [
-                    'new_subscription_id' => $subscription->id,
-                    'existing_subscription_id' => $existingSubscription->id,
-                    'credits_added' => $creditAmount,
-                    'new_balance' => $existingSubscription->credit_balance,
-                ]);
             } else {
                 // No existing subscription - activate this one normally
                 $subscription->status = CustomerSubscription::STATUS_ACTIVE;
@@ -152,8 +172,8 @@ class SubscriptionService
                     $subscription->payment_reference = $transactionRef;
                 }
                 $subscription->save();
-                
-                // Log credit transactions for new subscriptions
+
+                // Log initial credit balance transaction
                 $this->logInitialCredits($subscription);
             }
 
@@ -191,11 +211,8 @@ class SubscriptionService
         return CustomerSubscription::create([
             'customer_id' => $customer->id,
             'subscription_id' => $plan->id,
-            'laundry_credits_remaining' => $plan->laundry_credits,
-            'clothing_credits_remaining' => $plan->clothing_credits,
-            'delivery_credits_remaining' => $plan->delivery_credits,
-            'towel_credits_remaining' => $plan->towel_credits,
-            'special_credits_remaining' => $plan->special_credits,
+            'credit_balance' => $plan->credit_amount ? $plan->credit_amount : ($plan->price ?? 0),
+            'total_credits_used' => 0,
             'start_date' => $startDate,
             'end_date' => $endDate,
             'status' => CustomerSubscription::STATUS_PENDING,
@@ -213,9 +230,6 @@ class SubscriptionService
         $count = 0;
 
         foreach ($expired as $subscription) {
-            // Log remaining credits as expired
-            $this->creditService->expireCredits($subscription);
-            
             // Mark as expired
             $subscription->markExpired();
             $count++;
@@ -254,13 +268,27 @@ class SubscriptionService
     }
 
     /**
+     * Calculate new end date for renewal based on plan validity
+     * Starts from current end date (or now if already expired)
+     */
+    public function calculateRenewalEndDate(Subscription $plan, $currentEndDate): Carbon
+    {
+        // If subscription already expired, start from now
+        $startDate = $currentEndDate instanceof Carbon
+            ? ($currentEndDate->isPast() ? now() : $currentEndDate)
+            : now();
+
+        return $this->calculateEndDate($plan, $startDate);
+    }
+
+    /**
      * Calculate end date based on plan validity
      */
     protected function calculateEndDate(Subscription $plan, ?Carbon $startDate = null): Carbon
     {
         $start = $startDate ?? now();
-        
-        return match($plan->validity_type->value) {
+
+        return match ($plan->validity_type->value) {
             'days' => $start->copy()->addDays($plan->validity),
             'months' => $start->copy()->addMonths($plan->validity),
             'years' => $start->copy()->addYears($plan->validity),
@@ -274,25 +302,21 @@ class SubscriptionService
     protected function logInitialCredits(CustomerSubscription $subscription): void
     {
         $plan = $subscription->subscription;
-        $creditTypes = [
-            'laundry' => $plan->laundry_credits,
-            'clothing' => $plan->clothing_credits,
-            'delivery' => $plan->delivery_credits,
-            'towel' => $plan->towel_credits,
-            'special' => $plan->special_credits,
-        ];
+        $creditAmount = $subscription->credit_balance ?? 0;
 
-        foreach ($creditTypes as $type => $amount) {
-            if ($amount > 0) {
-                $this->creditService->addCredits(
-                    $subscription->customer,
-                    $type,
-                    $amount,
-                    'subscription',
-                    $subscription->id,
-                    "Initial credits from {$plan->name} subscription"
-                );
-            }
+        if ($creditAmount > 0) {
+            \App\Models\CreditTransaction::create([
+                'customer_id' => $subscription->customer_id,
+                'customer_subscription_id' => $subscription->id,
+                'credit_type' => 'balance',
+                'amount' => $creditAmount,
+                'transaction_type' => 'credit',
+                'reference_type' => 'subscription_purchase',
+                'reference_id' => $subscription->id,
+                'balance_before' => 0,
+                'balance_after' => $creditAmount,
+                'notes' => "رصيد ابتدائي من اشتراك: {$plan->name}",
+            ]);
         }
     }
 }
