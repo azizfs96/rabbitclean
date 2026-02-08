@@ -48,16 +48,17 @@ class OrderResource extends JsonResource
             'delivery_charge' => (int) ($this->delivery_charge ?? 0),
             'order_status' => $this->order_status,
             'order_status_bn' => config('enums.order_status_labels.' . $this->order_status, $this->order_status),
+            'delivery_type' => $this->delivery_type ?? null,
             'is_active' => $this->isActiveOrder(),
             'is_final' => $this->isFinalOrder(),
             'payment_status' => $this->payment_status,
             'payment_status_bn' => __($this->payment_status),
             'payment_type' => $this->payment_type,
             'payment_type_bn' => __($this->payment_type),
-            'pick_date' => Carbon::parse($this->pick_date)->format('d F, Y'),
-            'pick_hour' => $this->pick_hour ? $this->getTime($this->extractHour($this->pick_hour)) : null,
-            'delivery_date' => Carbon::parse($this->delivery_date)->format('d F, Y'),
-            'delivery_hour' => $this->delivery_hour ? $this->getTime($this->extractHour($this->delivery_hour)) : null,
+            'pick_date' => $this->pick_date ? Carbon::parse($this->pick_date)->format('d F, Y') : null,
+            'pick_hour' => $this->getPickHourForApi(),
+            'delivery_date' => $this->delivery_date ? Carbon::parse($this->delivery_date)->format('d F, Y') : null,
+            'delivery_hour' => $this->getDeliveryHourForApi(),
             'ordered_at' => $this->created_at->format('Y-m-d h:i a'),
             'rating' => $this->rating ? $this->rating->rating : null,
             'item' => $this->products ? $this->products->count() : 0,
@@ -72,6 +73,38 @@ class OrderResource extends JsonResource
             }, []),
             'note' => $this->instruction,
         ];
+    }
+
+    /**
+     * غسيل مستعجل: الاستلام خلال 30 دقيقة إلى ساعة من وقت الطلب
+     * غسيل عادي: استخدام pick_hour من قاعدة البيانات
+     */
+    private function getPickHourForApi()
+    {
+        if ($this->delivery_type === 'express' || $this->pick_hour === 'express') {
+            $orderedAt = $this->created_at ?? now();
+            $start = $orderedAt->copy()->addMinutes(30);
+            $end = $orderedAt->copy()->addHour();
+            return sprintf('%02d:%02d-%02d:%02d', $start->hour, $start->minute, $end->hour, $end->minute);
+        }
+        return $this->pick_hour ? $this->getTime($this->extractHour($this->pick_hour)) : null;
+    }
+
+    /**
+     * غسيل مستعجل: التوصيل خلال 30 دقيقة إلى ساعة من تغيير الحالة لـ ready
+     * غسيل عادي: استخدام delivery_hour من قاعدة البيانات
+     */
+    private function getDeliveryHourForApi()
+    {
+        if ($this->delivery_type === 'express' || $this->pick_hour === 'express') {
+            if ($this->order_status === 'ready' && $this->ready_at) {
+                $start = Carbon::parse($this->ready_at)->addMinutes(30);
+                $end = Carbon::parse($this->ready_at)->addHour();
+                return sprintf('%02d:%02d-%02d:%02d', $start->hour, $start->minute, $end->hour, $end->minute);
+            }
+            return null; // لم يصبح جاهزاً بعد - التطبيق يمكن أن يعرض "بعد الجاهزية"
+        }
+        return $this->delivery_hour ? $this->getTime($this->extractHour($this->delivery_hour)) : null;
     }
 
     /**

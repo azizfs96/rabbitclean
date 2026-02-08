@@ -28,6 +28,8 @@ class OrderRequest extends FormRequest
      */
     public function rules()
     {
+        $isExpress = $this->input('delivery_type') === 'express';
+
         return [
             'service_id' => ['nullable', 'array'],
             'service_id.*' => ['required', 'exists:services,id'],
@@ -35,10 +37,11 @@ class OrderRequest extends FormRequest
             'products' => ['nullable', 'array'],
             'products.*.id' => 'required|exists:' . (new Product())->getTable() . ',id',
             'additional_service_id' => 'nullable|array',
-            'pick_date' => ['required', 'date'],
-            'pick_hour' => ['required'],
-            'delivery_date' => ['required', 'date'],
-            'delivery_hour' => ['required'],
+            'delivery_type' => ['nullable', 'string', 'in:express'],
+            'pick_date' => [$isExpress ? 'nullable' : 'required', 'date'],
+            'pick_hour' => [$isExpress ? 'nullable' : 'required'],
+            'delivery_date' => [$isExpress ? 'nullable' : 'required', 'date'],
+            'delivery_hour' => [$isExpress ? 'nullable' : 'required'],
             'address_id' => ['required', 'exists:addresses,id'],
             'coupon_id' => ['nullable','exists:' . (new Coupon())->getTable() . ',id'],
             'payment_type' => ['required', new Enum(PaymentGateway::class)],

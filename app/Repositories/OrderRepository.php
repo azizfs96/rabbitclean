@@ -66,6 +66,24 @@ class OrderRepository extends Repository
             }
         }
 
+        $isExpress = $request->input('delivery_type') === 'express';
+        $today = now()->format('Y-m-d');
+
+        if ($isExpress) {
+            // غسيل مستعجل: الباكند يحسب كل التوقيتات
+            // استلام: خلال 30 دقيقة إلى ساعة من وقت الطلب
+            // توصيل: خلال 30 دقيقة إلى ساعة من تغيير الحالة لـ ready
+            $pickHour = 'express'; // سيُحسب في OrderResource من ordered_at
+            $deliveryHour = null;  // سيُحسب في OrderResource من ready_at عند الجاهزية
+            $pickDate = $today;
+            $deliveryDate = $today;
+        } else {
+            $pickDate = $request->pick_date;
+            $deliveryDate = $request->delivery_date;
+            $pickHour = $this->setPickOrDeliveryTime($request->pick_date, $request->pick_hour);
+            $deliveryHour = $this->setPickOrDeliveryTime($request->delivery_date, $request->delivery_hour, 'delivery');
+        }
+
         $order = $this->create([
             'customer_id' => $customer->id,
             'order_code' => str_pad($lastOrder ? $lastOrder->id + 1 : 1, 6, "0", STR_PAD_LEFT),
@@ -73,10 +91,11 @@ class OrderRepository extends Repository
             'service_id' => $firstServiceId,
             'coupon_id' => $request->coupon_id,
             'discount' => $getAmount['discount'],
-            'pick_date' => $request->pick_date,
-            'delivery_date' => $request->delivery_date,
-            'pick_hour' => $this->setPickOrDeliveryTime($request->pick_date, $request->pick_hour),
-            'delivery_hour' => $this->setPickOrDeliveryTime($request->delivery_date, $request->delivery_hour, 'delivery'),
+            'pick_date' => $pickDate,
+            'delivery_date' => $deliveryDate,
+            'pick_hour' => $pickHour,
+            'delivery_hour' => $deliveryHour,
+            'delivery_type' => $isExpress ? 'express' : null,
             'amount' => $hasProducts ? $getAmount['subTotal'] : null,
             'total_amount' => $hasProducts ? $getAmount['total'] : null,
             'delivery_charge' => $getAmount['deliveryCharge'],
@@ -286,9 +305,14 @@ class OrderRepository extends Repository
 
     public function statusUpdateByRequest(Order $order, $status): Order
     {
-        $order->update([
-            'order_status' => $status,
-        ]);
+        $update = ['order_status' => $status];
+
+        // غسيل مستعجل: تسجيل وقت الجاهزية عند التوصيل
+        if ($status === config('enums.order_status.ready')) {
+            $update['ready_at'] = now();
+        }
+
+        $order->update($update);
 
         return $order;
     }

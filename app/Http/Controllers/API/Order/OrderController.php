@@ -52,34 +52,33 @@ class OrderController extends Controller
 
     public function store(OrderRequest $request)
     {
-        // For simplified workflow: customer sends only service, date/time, address
-        // Admin will add products later
-        $pickTime = (new OrderRepository())->setPickOrDeliveryTime($request->pick_date, $request->pick_hour);
-        $deliveryTime = (new OrderRepository())->setPickOrDeliveryTime($request->delivery_date, $request->delivery_hour, 'delivery');
+        $isExpress = $request->input('delivery_type') === 'express';
 
-        // Check if both pickup and delivery time slots are available
-        if ($pickTime != null && $deliveryTime != null) {
+        // الغسيل المستعجل لا يحتاج فحص المواعيد - الباكند يحسب التوقيت
+        if (!$isExpress) {
+            $pickTime = (new OrderRepository())->setPickOrDeliveryTime($request->pick_date, $request->pick_hour);
+            $deliveryTime = (new OrderRepository())->setPickOrDeliveryTime($request->delivery_date, $request->delivery_hour, 'delivery');
 
-            $order = (new OrderRepository())->storeByRequest($request);
-            // No transaction yet - will be created when admin completes the order
-            
-            if ($request->has('additional_service_id')) {
-                $order->additionals()->sync($request->additional_service_id);
+            if ($pickTime == null || $deliveryTime == null) {
+                return $this->json('pick up slot or delivery slot not available', [], Response::HTTP_BAD_REQUEST);
             }
-
-            $message  = 'New order add from ' . $order->customer->name;
-            OrderNotificationEvent::dispatch($message);
-
-            // Return order without payment - admin needs to add products first
-            return $this->json('Order Successfully', [
-                'message' => 'Order is added successfully and waiting for admin to add products',
-                'payment_url' => null,
-                'payment_type' => null,
-                'orders' => OrderResource::make($order),
-            ]);
         }
 
-        return $this->json('pick up slot or delivery slot not available', [], Response::HTTP_BAD_REQUEST);
+        $order = (new OrderRepository())->storeByRequest($request);
+
+        if ($request->has('additional_service_id')) {
+            $order->additionals()->sync($request->additional_service_id);
+        }
+
+        $message  = 'New order add from ' . $order->customer->name;
+        OrderNotificationEvent::dispatch($message);
+
+        return $this->json('Order Successfully', [
+            'message' => 'Order is added successfully and waiting for admin to add products',
+            'payment_url' => null,
+            'payment_type' => null,
+            'orders' => OrderResource::make($order),
+        ]);
     }
 
     public function show($id)
