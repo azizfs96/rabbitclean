@@ -1,10 +1,15 @@
 <?php
 
+<<<<<<< HEAD
 use Illuminate\Contracts\Http\Kernel;
+=======
+use Illuminate\Foundation\Application;
+>>>>>>> 7d2250222b1076404c7124acb2f73be59dd3ce1a
 use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
+<<<<<<< HEAD
 /*
 |--------------------------------------------------------------------------
 | Check If The Application Is Under Maintenance
@@ -53,3 +58,18 @@ $response = tap($kernel->handle(
 ))->send();
 
 $kernel->terminate($request, $response);
+=======
+// Determine if the application is in maintenance mode...
+if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
+    require $maintenance;
+}
+
+// Register the Composer autoloader...
+require __DIR__.'/../vendor/autoload.php';
+
+// Bootstrap Laravel and handle the request...
+/** @var Application $app */
+$app = require_once __DIR__.'/../bootstrap/app.php';
+
+$app->handleRequest(Request::capture());
+>>>>>>> 7d2250222b1076404c7124acb2f73be59dd3ce1a

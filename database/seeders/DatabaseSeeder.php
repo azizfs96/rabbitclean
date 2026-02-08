@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+<<<<<<< HEAD
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Artisan;
 
@@ -58,5 +59,25 @@ class DatabaseSeeder extends Seeder
         $this->command->warn('Installing passport client');
         Artisan::call('passport:install');
         $this->command->info('Passport client installed');
+=======
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    use WithoutModelEvents;
+
+    /**
+     * Seed the application's database.
+     */
+    public function run(): void
+    {
+        // User::factory(10)->create();
+
+        User::factory()->create([
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+        ]);
+>>>>>>> 7d2250222b1076404c7124acb2f73be59dd3ce1a
     }
 }

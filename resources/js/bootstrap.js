@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 window._ = require('lodash');
 
 /**
@@ -26,3 +27,9 @@ window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 //     cluster: process.env.MIX_PUSHER_APP_CLUSTER,
 //     forceTLS: true
 // });
+=======
+import axios from 'axios';
+window.axios = axios;
+
+window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+>>>>>>> 7d2250222b1076404c7124acb2f73be59dd3ce1a
