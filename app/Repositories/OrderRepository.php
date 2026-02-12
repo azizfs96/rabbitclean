@@ -4,6 +4,8 @@
 namespace App\Repositories;
 
 use App\Models\Order;
+use App\Models\Address;
+use App\Models\ServiceArea;
 use Illuminate\Http\Request;
 use App\Http\Requests\OrderRequest;
 use App\Models\Additional;
@@ -12,6 +14,7 @@ use App\Enum\PaymentStatus;
 use App\Enum\PaymentType;
 use App\Models\Product;
 use App\Models\WebSetting;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
 class OrderRepository extends Repository
@@ -34,9 +37,27 @@ class OrderRepository extends Repository
 
     public function storeByRequest(OrderRequest $request): Order
     {
-
         $lastOrder = $this->query()->latest('id')->first();
         $customer = auth()->user()->customer;
+
+        // --- Service area check based on address_id ---
+        /** @var \App\Models\Address|null $address */
+        $address = Address::find($request->address_id);
+
+        if (!$address || !isset($address->area)) {
+            throw ValidationException::withMessages([
+                'address_id' => ['لم يتم العثور على هذا العنوان أو لا يحتوي على حقل الحي.'],
+            ]);
+        }
+
+        /** @var \App\Models\ServiceArea|null $serviceArea */
+        $serviceArea = ServiceArea::where('name', $address->area)->first();
+
+        if (!$serviceArea) {
+            throw ValidationException::withMessages([
+                'address_id' => ['عذراً، حيّك غير مشمول حالياً ضمن نطاق خدمة Rabbit Clean.'],
+            ]);
+        }
         
         // Check if order review mode is enabled
         $webSetting = WebSetting::first();
@@ -54,6 +75,13 @@ class OrderRepository extends Repository
                 'deliveryCharge' => 0,
                 'discount' => 0,
             ];
+        }
+
+        // تطبيق رسوم التوصيل الإضافية في حال كان الحي خارج النطاق الأساسي ومسموح مع رسوم
+        if (!$serviceArea->is_served && $serviceArea->allow_with_extra_fee) {
+            $extraFee = (float) $serviceArea->extra_delivery_fee;
+            $getAmount['deliveryCharge'] += $extraFee;
+            $getAmount['total'] += $extraFee;
         }
 
         // Handle service_id - support both single value (backward compatibility) and array
