@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+<<<<<<< HEAD
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -24,6 +25,33 @@ class User extends Authenticatable
      * The attributes that should be hidden for arrays.
      *
      * @var array
+=======
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    /** @use HasFactory<\Database\Factories\UserFactory> */
+    use HasFactory, Notifiable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+>>>>>>> 7d2250222b1076404c7124acb2f73be59dd3ce1a
      */
     protected $hidden = [
         'password',
@@ -31,6 +59,7 @@ class User extends Authenticatable
     ];
 
     /**
+<<<<<<< HEAD
      * The attributes that should be cast to native types.
      *
      * @var array
@@ -87,5 +116,17 @@ class User extends Authenticatable
         }
 
         return asset('images/dummy/dummy-user.png');
+=======
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+>>>>>>> 7d2250222b1076404c7124acb2f73be59dd3ce1a
     }
 }
