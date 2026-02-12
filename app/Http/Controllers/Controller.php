@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-<<<<<<< HEAD
 use Exception;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
@@ -54,9 +53,4 @@ class Controller extends BaseController
             return false;
         }
     }
-=======
-abstract class Controller
-{
-    //
->>>>>>> 7d2250222b1076404c7124acb2f73be59dd3ce1a
 }

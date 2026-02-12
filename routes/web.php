@@ -1,6 +1,5 @@
 <?php
 
-<<<<<<< HEAD
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Contracts\Role;
@@ -319,14 +318,3 @@ Route::get('change-language', function () {
     session()->save(); // Force session save
     return redirect()->back()->with('language_changed', true);
 })->name('change.local');
-=======
-use Illuminate\Support\Facades\Route;
-
-Route::get('/', function () {
-    return view('landing');
-});
-
-Route::get('/googleconsole', function () {
-    return view('googleconsole');
-});
->>>>>>> 7d2250222b1076404c7124acb2f73be59dd3ce1a
