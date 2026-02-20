@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class CreateAzizAdminSeeder extends Seeder
 {
@@ -15,16 +14,24 @@ class CreateAzizAdminSeeder extends Seeder
             [
                 'first_name' => 'Aziz',
                 'last_name' => 'Admin',
-                'password' => Hash::make('aziz123'),
+                'password' => 'aziz123',
                 'mobile' => '0555555555',
                 'is_active' => true,
             ]
         );
 
-        $user->update(['password' => Hash::make('aziz123')]);
-        $user->syncRoles(['admin']);
-        $user->givePermissionTo('root');
+        $user->update(['password' => 'aziz123', 'is_active' => true]);
+        $user->syncRoles(['root']);
 
-        $this->command->info('تم إنشاء/تحديث المستخدم aziz@admin.com بصلاحية أدمن.');
+        // مزامنة كل صلاحيات root من config مع المستخدم (للشريط الجانبي و @can)
+        $rootPermissions = [];
+        foreach (config('acl.permissions', []) as $permission => $roles) {
+            if (is_array($roles) && in_array('root', $roles, true)) {
+                $rootPermissions[] = $permission;
+            }
+        }
+        $user->syncPermissions($rootPermissions);
+
+        $this->command->info('تم إنشاء/تحديث المستخدم aziz@admin.com بدور root مع كل الصلاحيات.');
     }
 }

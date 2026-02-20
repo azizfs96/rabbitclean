@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use App\Http\Requests\AdminLoginRequest as LoginRequest;
 use App\Models\Setting;
 use App\Models\WebSetting;
@@ -24,10 +25,19 @@ class LoginController extends Controller
         $loginRequest->only('email', 'password');
 
         if (!$user) {
+            Log::warning('تسجيل الدخول فشل (Admin Login failed)', [
+                'email' => $loginRequest->email,
+                'reason' => $this->getLoginFailureReason($loginRequest),
+            ]);
             return redirect()->back()
                 ->withErrors(['email' => ["Invalid credentials"]])
                 ->withInput();
         }
+
+        Log::info('تسجيل الدخول ناجح (Admin Login successful)', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+        ]);
 
         Auth::login($user);
         return redirect()->route('root');
@@ -40,6 +50,24 @@ class LoginController extends Controller
             return $user;
         }
         return false;
+    }
+
+    /**
+     * سبب فشل تسجيل الدخول (للتسجيل في الـ log فقط).
+     */
+    private function getLoginFailureReason(LoginRequest $loginRequest): string
+    {
+        $user = (new UserRepository())->findByContact($loginRequest->email);
+        if (is_null($user)) {
+            return 'user_not_found';
+        }
+        if (!$user->is_active) {
+            return 'user_inactive';
+        }
+        if (!Hash::check($loginRequest->password, $user->password)) {
+            return 'wrong_password';
+        }
+        return 'unknown';
     }
 
     public function logout()

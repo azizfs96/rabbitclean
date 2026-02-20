@@ -14,17 +14,14 @@ class RoleSeeder extends Seeder
      */
     public function run()
     {
-        $roles = [];
-        $sl = 0;
         $getRoles = config('acl.roles');
         if (empty($getRoles) || !is_array($getRoles)) {
             return;
         }
         foreach ($getRoles as $key => $role) {
-            $roles[$sl]['name'] = $role;
-            $roles[$sl]['guard_name'] = 'web';
-            $sl++;
+            Role::firstOrCreate(
+                ['name' => $role, 'guard_name' => 'web']
+            );
         }
-        return Role::insert($roles);
     }
 }

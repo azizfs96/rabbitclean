@@ -190,7 +190,7 @@
                     </li>
                 @endcan
 
-                @role('root|visitor')
+                @role('root|admin|visitor')
                     <li class="nav-item">
                         <a class="nav-link {{ request()->routeIs('admin.*') ? 'active' : '' }}"
                             href="{{ route('admin.index') }}">
