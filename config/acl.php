@@ -105,5 +105,11 @@ return [
         'admin.update' => ['root'],
         'admin.show' => ['root', 'admin', 'visitor'],
         'admin.set-permission' => ['root'],
+
+        'service-areas.index' => ['root', 'admin', 'visitor'],
+        'service-areas.store' => ['root', 'admin', 'visitor'],
+        'service-areas.update' => ['root', 'admin', 'visitor'],
+        'service-areas.toggle' => ['root', 'admin', 'visitor'],
+        'service-areas.delete' => ['root', 'admin', 'visitor'],
     ],
 ];

@@ -305,6 +305,13 @@
                                     <i class="fas fa-map-marker-alt"></i>
                                     <span class="nav-link-text">{{ __('Areas') }}</span>
                                 </a>
+                                @can('service-areas.index')
+                                <a class="nav-link sub-menu {{ request()->routeIs('service-areas.*') ? 'active' : '' }}"
+                                    href="{{ route('service-areas.index') }}">
+                                    <i class="fas fa-map-marked-alt"></i>
+                                    <span class="nav-link-text">{{ __('أحياء الخدمة') }}</span>
+                                </a>
+                                @endcan
                             </ul>
                         </div>
                     </li>

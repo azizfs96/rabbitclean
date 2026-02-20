@@ -7,6 +7,7 @@ use App\Http\Controllers\FCMController;
 use App\Http\Controllers\CreateSuperAdmin;
 use App\Http\Controllers\Web\PosController;
 use App\Http\Controllers\Web\AreaController;
+use App\Http\Controllers\Web\ServiceAreaController;
 use App\Http\Controllers\Web\LanguageController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\Auth\LoginController;
@@ -255,6 +256,15 @@ Route::middleware(['auth', 'role:root|visitor'])->group(function () {
         Route::put('/areas/{area}/update', 'update')->name('areas.update');
         Route::get('/areas/{area}/toggle', 'toggle')->name('areas.toggle');
         Route::get('/areas/{area}/delete', 'delete')->name('areas.delete');
+    });
+
+    // أحياء الخدمة (Service Areas) - للتطبيق وفحص نطاق الخدمة
+    Route::controller(ServiceAreaController::class)->group(function () {
+        Route::get('/service-areas', 'index')->name('service-areas.index');
+        Route::post('/service-areas/store', 'store')->name('service-areas.store');
+        Route::put('/service-areas/{service_area}/update', 'update')->name('service-areas.update');
+        Route::get('/service-areas/{service_area}/toggle', 'toggle')->name('service-areas.toggle');
+        Route::get('/service-areas/{service_area}/delete', 'delete')->name('service-areas.delete');
     });
 
     //  Msegat SMS Gateway (Configuration & Testing)
