@@ -8,6 +8,9 @@ use Kreait\Firebase\Messaging\Notification;
 
 class NotificationServices
 {
+    /** FCM تقبل في data قيماً نصية فقط */
+    private const ANDROID_PRIORITY_HIGH = 'high';
+
     /** @var \Kreait\Firebase\Contract\Messaging|null */
     private $firebaseMessaging;
 
@@ -54,15 +57,24 @@ class NotificationServices
 
     /**
      * إرسال إشعار لعدة أجهزة.
+     *
+     * @param array<string, string> $data بيانات إضافية (مثل orderId, order_status) - القيم يجب أن تكون strings
      */
-    public function sendNotification(string $message, array $deviceTokens, string $title): void
+    public function sendNotification(string $message, array $deviceTokens, string $title, array $data = []): void
     {
         if (empty($deviceTokens)) {
             return;
         }
         $this->ensureMessaging();
+
         $msg = CloudMessage::new()
-            ->withNotification(Notification::create($title, $message));
+            ->withNotification(Notification::create($title, $message))
+            ->withAndroidConfig(['priority' => self::ANDROID_PRIORITY_HIGH]);
+
+        if ($data !== []) {
+            $msg = $msg->withData($data);
+        }
+
         $this->firebaseMessaging->sendMulticast($msg, $deviceTokens);
     }
 

@@ -89,7 +89,11 @@ class OrderController extends Controller
         $tokens = collect($devices)->pluck('key')->filter()->values()->toArray();
         if (!empty($tokens)) {
             try {
-                (new NotificationServices())->sendNotification($message, $tokens, $title);
+                $fcmData = [
+                    'orderId' => (string) $order->id,
+                    'order_status' => $status,
+                ];
+                (new NotificationServices())->sendNotification($message, $tokens, $title, $fcmData);
             } catch (\Throwable $e) {
                 \Log::warning('Order status FCM notification failed: ' . $e->getMessage(), [
                     'order_id' => $order->id,
@@ -330,7 +334,11 @@ class OrderController extends Controller
         $tokens = collect($devices)->pluck('key')->filter()->values()->toArray();
         if (!empty($tokens)) {
             try {
-                (new NotificationServices())->sendNotification($message, $tokens, $title);
+                $fcmData = [
+                    'orderId' => (string) $order->id,
+                    'order_status' => 'create_invoice',
+                ];
+                (new NotificationServices())->sendNotification($message, $tokens, $title, $fcmData);
             } catch (\Throwable $e) {
                 \Log::warning('Create invoice FCM notification failed: ' . $e->getMessage(), ['order_id' => $order->id]);
             }
