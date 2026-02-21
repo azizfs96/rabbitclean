@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Service;
+use App\Models\ServiceArea;
 use App\Models\WebSetting;
 use Illuminate\Http\Request;
 use App\Events\UserMailEvent;
@@ -63,30 +64,37 @@ class OrderController extends Controller
         }
         $order = $this->orderRepo->StatusUpdateByRequest($order, $status);
 
-        $notificationOrder = NotificationManage::where('name', $status)->first();
+        // تحميل العميل وأجهزته لضمان إرسال الإشعار
+        $order->load(['customer.devices', 'customer.user']);
 
-        // Send Arabic notification to customer
-        if ($order->customer?->devices?->count()) {
-            $devices = $order->customer->devices;
-            
-            // Get Arabic notification message and title from config
-            $messageTemplate = config('enums.order_status_notifications_ar.' . $status);
-            $title = config('enums.order_status_titles_ar.' . $status, 'تحديث حالة الطلب');
-            
-            // Replace placeholders with actual values
-            $message = str_replace(
-                [':name', ':order_code', ':amount'],
-                [
-                    $order->customer->user->first_name ?? $order->customer->name ?? 'عميلنا الكريم',
-                    $order->prefix . $order->order_code,
-                    number_format($order->total_amount ?? 0, 2)
-                ],
-                $messageTemplate ?? 'تم تحديث حالة طلبك'
-            );
+        $messageTemplate = config('enums.order_status_notifications_ar.' . $status);
+        $title = config('enums.order_status_titles_ar.' . $status, 'تحديث حالة الطلب');
+        $message = str_replace(
+            [':name', ':order_code', ':amount'],
+            [
+                $order->customer?->user?->first_name ?? $order->customer?->name ?? 'عميلنا الكريم',
+                $order->prefix . $order->order_code,
+                number_format($order->total_amount ?? 0, 2)
+            ],
+            $messageTemplate ?? 'تم تحديث حالة طلبك'
+        );
 
-            $tokens = $devices->pluck('key')->toArray();
-            (new NotificationServices())->sendNotification($message, $tokens, $title);
+        // حفظ الإشعار في قاعدة البيانات دائماً (يظهر في التطبيق حتى لو فشل FCM)
+        if ($order->customer) {
             (new NotificationRepository())->storeByRequest($order->customer->id, $message, $title);
+        }
+
+        // إرسال push عبر FCM إن وُجدت أجهزة مسجلة
+        $tokens = $order->customer?->devices?->pluck('key')->filter()->values()->toArray() ?? [];
+        if (!empty($tokens)) {
+            try {
+                (new NotificationServices())->sendNotification($message, $tokens, $title);
+            } catch (\Throwable $e) {
+                \Log::warning('Order status FCM notification failed: ' . $e->getMessage(), [
+                    'order_id' => $order->id,
+                    'status' => $status,
+                ]);
+            }
         }
 
         return back()->with('success', 'Status updated successfully');
@@ -197,8 +205,18 @@ class OrderController extends Controller
             $totalAmount += ($price * $quantity);
         }
 
-        // Use delivery charge from request or default to 0
-        $deliveryCharge = $request->delivery_charge ?? 0;
+        // Use delivery charge from request, or keep existing (e.g. رسوم حي إضافية من الطلب)
+        $deliveryCharge = $request->filled('delivery_charge') ? (float) $request->delivery_charge : (float) ($order->delivery_charge ?? 0);
+        // إذا كان عنوان الطلب في حي مسموح مع رسوم إضافية، نتأكد أن رسوم التوصيل تتضمنها
+        if ($order->address && $order->address->area) {
+            $serviceArea = ServiceArea::where('name', $order->address->area)->first();
+            if ($serviceArea && !$serviceArea->is_served && $serviceArea->allow_with_extra_fee) {
+                $extraFee = (float) $serviceArea->extra_delivery_fee;
+                if ($deliveryCharge < $extraFee) {
+                    $deliveryCharge = $extraFee;
+                }
+            }
+        }
         $totalAmount += $deliveryCharge;
 
         // Update order with products, amounts, and delivery charge
