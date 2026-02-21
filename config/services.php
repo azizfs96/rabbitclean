@@ -42,4 +42,13 @@ return [
         ],
     ],
 
+    /*
+    | Firebase Cloud Messaging (FCM) - للإشعارات
+    | المسار الكامل لملف خدمة Firebase (JSON). إن لم يُحدد يُستخدم storage/app/firebase_credentials.json
+    | لا تضع الملف في public/ لأسباب أمنية.
+    */
+    'firebase' => [
+        'credentials' => env('FIREBASE_CREDENTIALS_PATH', storage_path('app/firebase_credentials.json')),
+    ],
+
 ];

@@ -34,16 +34,30 @@ class NotificationController extends Controller
         $title = $request->title;
         $customers = $request->customer;
 
-        $keys = DeviceKey::whereIn('customer_id', $customers)->pluck('key')->toArray();
-        (new NotificationServices())->sendNotification($message, $keys, $title);
-        // NotificationServices::sendNotification($message, $keys, $title);
-        // (new NotificationServices($message, $keys, $title));
-
+        // حفظ الإشعارات في قاعدة البيانات دائماً (تظهر في التطبيق)
         foreach ($customers as $customerID) {
             $customer = Customer::find($customerID);
-            (new NotificationRepository())->storeByRequest($customer->id,$message,$title);
+            if ($customer) {
+                (new NotificationRepository())->storeByRequest($customer->id, $message, $title);
+            }
         }
 
-        return back()->with('success', 'Send Successfully');
+        $keys = DeviceKey::whereIn('customer_id', $customers)->pluck('key')->toArray();
+        if (!empty($keys)) {
+            try {
+                $service = new NotificationServices();
+                if (!$service->isAvailable()) {
+                    return back()->with('error', 'إشعارات FCM غير مُعدّة. يرجى رفع ملف خدمة Firebase (firebase_credentials.json) في المسار: ' . storage_path('app') . ' أو تعيين FIREBASE_CREDENTIALS_PATH في ملف .env');
+                }
+                $service->sendNotification($message, $keys, $title);
+            } catch (\InvalidArgumentException $e) {
+                return back()->with('error', $e->getMessage());
+            } catch (\Throwable $e) {
+                \Log::error('Send notification failed: ' . $e->getMessage());
+                return back()->with('error', 'فشل إرسال الإشعار عبر FCM: ' . $e->getMessage());
+            }
+        }
+
+        return back()->with('success', 'تم حفظ الإشعار وإرساله بنجاح.');
     }
 }
