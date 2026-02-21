@@ -85,7 +85,8 @@ class OrderController extends Controller
         }
 
         // إرسال push عبر FCM إن وُجدت أجهزة مسجلة
-        $tokens = $order->customer?->devices?->pluck('key')->filter()->values()->toArray() ?? [];
+        $devices = $order->customer?->devices ?? collect();
+        $tokens = collect($devices)->pluck('key')->filter()->values()->toArray();
         if (!empty($tokens)) {
             try {
                 (new NotificationServices())->sendNotification($message, $tokens, $title);
@@ -304,36 +305,34 @@ class OrderController extends Controller
 
         // Refresh order and load customer with devices to ensure fresh data
         $order->refresh();
-        $order->load('customer.devices');
+        $order->load(['customer.devices', 'customer.user']);
 
-        // Send Arabic notification to customer
-        if ($order->customer && $order->customer->devices && $order->customer->devices->count() > 0) {
-            $devices = $order->customer->devices;
-            $tokens = $devices->pluck('key')->toArray();
-            
-            if (!empty($tokens)) {
-                // Get Arabic notification message and title from config
-                $status = 'create_invoice';
-                $messageTemplate = config('enums.order_status_notifications_ar.' . $status);
-                $title = config('enums.order_status_titles_ar.' . $status, 'الفاتورة جاهزة 📄');
-                
-                // Replace placeholders with actual values
-                $message = str_replace(
-                    [':name', ':order_code', ':amount'],
-                    [
-                        $order->customer->user->first_name ?? $order->customer->name ?? 'عميلنا الكريم',
-                        $order->prefix . $order->order_code,
-                        number_format($order->total_amount ?? 0, 2)
-                    ],
-                    $messageTemplate ?? 'طلبك جاهز للدفع'
-                );
-                
-                try {
-                    (new NotificationServices())->sendNotification($message, $tokens, $title);
-                    (new NotificationRepository())->storeByRequest($order->customer->id, $message, $title);
-                } catch (\Exception $e) {
-                    \Log::error('Failed to send order notification: ' . $e->getMessage());
-                }
+        $status = 'create_invoice';
+        $messageTemplate = config('enums.order_status_notifications_ar.' . $status);
+        $title = config('enums.order_status_titles_ar.' . $status, 'الفاتورة جاهزة 📄');
+        $message = str_replace(
+            [':name', ':order_code', ':amount'],
+            [
+                $order->customer?->user?->first_name ?? $order->customer?->name ?? 'عميلنا الكريم',
+                $order->prefix . $order->order_code,
+                number_format($order->total_amount ?? 0, 2)
+            ],
+            $messageTemplate ?? 'طلبك جاهز للدفع'
+        );
+
+        // حفظ الإشعار في قاعدة البيانات دائماً
+        if ($order->customer) {
+            (new NotificationRepository())->storeByRequest($order->customer->id, $message, $title);
+        }
+
+        // إرسال push عبر FCM إن وُجدت أجهزة مسجلة
+        $devices = $order->customer?->devices ?? collect();
+        $tokens = collect($devices)->pluck('key')->filter()->values()->toArray();
+        if (!empty($tokens)) {
+            try {
+                (new NotificationServices())->sendNotification($message, $tokens, $title);
+            } catch (\Throwable $e) {
+                \Log::warning('Create invoice FCM notification failed: ' . $e->getMessage(), ['order_id' => $order->id]);
             }
         }
 
